@@ -10,6 +10,30 @@ interface Message {
   timestamp: Date
 }
 
+interface SpeechRecognitionResultLike {
+  readonly transcript: string
+}
+
+interface SpeechRecognitionEventLike {
+  readonly results: ArrayLike<ArrayLike<SpeechRecognitionResultLike>>
+  readonly error?: string
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  onstart: (() => void) | null
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: ((event: SpeechRecognitionEventLike) => void) | null
+  onend: (() => void) | null
+  start: () => void
+}
+
+interface SpeechRecognitionCtor {
+  new (): SpeechRecognitionLike
+}
+
 export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -36,36 +60,40 @@ export default function Chatbot() {
   const toggleListen = () => {
     if (isListening) return;
     
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionCtor
+      webkitSpeechRecognition?: SpeechRecognitionCtor
+    }
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
     if (!SpeechRecognition) {
       alert("Your browser does not support voice input.");
       return;
     }
     
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
+    const recognition = new SpeechRecognition()
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.lang = 'en-US'
 
     recognition.onstart = () => {
-      setIsListening(true);
-    };
+      setIsListening(true)
+    }
 
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(prev => prev + (prev ? ' ' : '') + transcript);
-    };
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
+      const transcript = event.results[0][0].transcript
+      setInput(prev => prev + (prev ? ' ' : '') + transcript)
+    }
 
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
-      setIsListening(false);
-    };
+    recognition.onerror = (event: SpeechRecognitionEventLike) => {
+      console.error("Speech recognition error", event.error)
+      setIsListening(false)
+    }
 
     recognition.onend = () => {
-      setIsListening(false);
-    };
+      setIsListening(false)
+    }
 
-    recognition.start();
+    recognition.start()
   }
 
   const handleSend = async () => {

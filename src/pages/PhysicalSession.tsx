@@ -104,7 +104,7 @@ export default function PhysicalSession() {
             {!isOnline ? (
               <OfflineExercisePlayer exercise={selectedExercise} onRepCounted={handleRepCounted} />
             ) : (
-              <WebcamFeed sessionId={sessionId} exerciseName={selectedExercise.name} onRepCounted={handleRepCounted} onFeedback={handleFeedback} />
+              <WebcamFeed sessionId={sessionId} exercise={selectedExercise} onRepCounted={handleRepCounted} onFeedback={handleFeedback} />
             )}
           </div>
 

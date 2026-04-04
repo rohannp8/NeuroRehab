@@ -1,4 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+
+function shuffleWords<T>(items: T[]): T[] {
+  const arr = [...items]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const bytes = new Uint32Array(1)
+    crypto.getRandomValues(bytes)
+    const j = bytes[0] % (i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
 
 const ALL_WORDS = ["APPLE", "CHAIR", "RIVER", "CLOUD", "TRAIN", "BREAD", "TIGER", "PLANT"]
 
@@ -10,13 +21,13 @@ export default function WordRecall({ onComplete }: { onComplete: (score: number,
 
   const startGame = () => {
     // Pick 3 random words
-    const shuffled = [...ALL_WORDS].sort(() => 0.5 - Math.random())
+    const shuffled = shuffleWords(ALL_WORDS)
     const targets = shuffled.slice(0, 3)
     setTargetWords(targets)
     setPhase('memorize')
 
     // Prepare recall options (3 targets + 3 distractors)
-    const optionsMix = [...targets, ...shuffled.slice(3, 6)].sort(() => 0.5 - Math.random())
+    const optionsMix = shuffleWords([...targets, ...shuffled.slice(3, 6)])
     setOptions(optionsMix)
 
     // Hide words after 4 seconds

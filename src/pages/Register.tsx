@@ -51,7 +51,7 @@ export default function Register() {
   const goNext = async () => { const valid = await trigger(stepsFields[step]); if (valid && step < 3) setStep(step + 1) }
   const goBack = () => { if (step > 0) setStep(step - 1) }
 
-  const onSubmit = async (_data: RegisterForm) => {
+  const onSubmit = async () => {
     setLoading(true)
     try { await new Promise((r) => setTimeout(r, 1000)); setUser(mockUser); navigate('/dashboard') }
     catch { /* handle error */ }

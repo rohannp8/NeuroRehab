@@ -1,14 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { jsPDF } from 'jspdf'
 import {
   Heart, Dumbbell, Brain, BarChart3, Play, ChevronRight,
-  SkipForward, CheckCircle2, Clock, Trophy, Zap, Target,
+  SkipForward, CheckCircle2, Trophy, Zap, Target,
   History, ArrowLeft, Sparkles, AlertCircle, Plus,
   Activity, Calendar, Medal
 } from 'lucide-react'
 import { mockExercises, CONDITIONS } from '../mockData'
 import type { Exercise } from '../types'
 import WebcamFeed from '../components/WebcamFeed'
+import DigitalTwin from '../components/DigitalTwin'
 import SequenceRecall from '../components/games/SequenceRecall'
 import PatternMatrix from '../components/games/PatternMatrix'
 import WordRecall from '../components/games/WordRecall'
@@ -31,6 +33,8 @@ interface ExerciseResult {
   reps: number
   duration: number
   skipped: boolean
+  repQuality: number
+  avgFatigue: number | null
 }
 
 interface GameResult {
@@ -52,6 +56,16 @@ interface SessionRecord {
   cognitiveScore: number
   overallScore: number
   xpEarned: number
+}
+
+interface PoseFramePayload {
+  rep_count?: number
+  digital_twin?: {
+    predicted_rom?: number
+    fatigue_score?: number
+    target_angle?: number
+    deviation_score?: number
+  }
 }
 
 // ─── Game configs ───────────────────────────────────────────────────────────
@@ -157,9 +171,12 @@ export default function Rehab() {
   const [currentExIdx, setCurrentExIdx] = useState(0)
   const [exerciseResults, setExerciseResults] = useState<ExerciseResult[]>([])
   const [sessionActive, setSessionActive] = useState(false)
+  const [currentSessionId, setCurrentSessionId] = useState('')
   const [repCount, setRepCount] = useState(0)
   const [timer, setTimer] = useState(0)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [liveData, setLiveData] = useState<PoseFramePayload['digital_twin'] | null>(null)
+  const fatigueSamplesRef = useRef<number[]>([])
 
   // Cognitive phase
   const [games, setGames] = useState<typeof ALL_GAMES>([])
@@ -191,22 +208,31 @@ export default function Rehab() {
 
   const handleRepCounted = useCallback((count: number) => setRepCount(count), [])
   const handleFeedback = useCallback((msg: string) => setFeedback(msg), [])
+  const handlePoseFrame = useCallback((result: PoseFramePayload) => {
+    if (result?.digital_twin) {
+      setLiveData(result.digital_twin)
+      if (typeof result.digital_twin.fatigue_score === 'number') {
+        fatigueSamplesRef.current.push(result.digital_twin.fatigue_score)
+      }
+    }
+    if (result?.rep_count !== undefined) setRepCount(result.rep_count)
+  }, [])
 
   // ── Start session ──────────────────────────────────────────────────────
 
   const startSession = () => {
-    const conditionId = disease === 'other' ? 'other' : disease
-    // Pick 4 exercises (prefer ones matching condition, then fill from all)
-    const matching = mockExercises.filter(e => e.condition_ids.includes(conditionId))
-    const others = mockExercises.filter(e => !e.condition_ids.includes(conditionId))
-    const pool = [...matching, ...others]
-    const selected = pool.slice(0, 4)
+    const requestedOrder = ['Finger Tapping', 'Fist Stretch', 'Arm Extension', 'Wrist Flexion']
+    const selected = requestedOrder
+      .map(name => mockExercises.find(e => e.name === name))
+      .filter((e): e is Exercise => Boolean(e))
     setExercises(selected)
     setCurrentExIdx(0)
     setExerciseResults([])
     setSessionActive(false)
+    setCurrentSessionId('')
     setRepCount(0)
     setTimer(0)
+    fatigueSamplesRef.current = []
 
     // Pick 4 random games
     const shuffled = [...ALL_GAMES].sort(() => 0.5 - Math.random())
@@ -221,25 +247,41 @@ export default function Rehab() {
   // ── Physical flow ──────────────────────────────────────────────────────
 
   const beginExercise = () => {
+    setCurrentSessionId(`zen-${Date.now()}`)
     setSessionActive(true)
     setRepCount(0)
     setTimer(0)
+    setLiveData(null)
+    fatigueSamplesRef.current = []
   }
 
   const finishExercise = (skipped: boolean) => {
     setSessionActive(false)
+    setCurrentSessionId('')
     const ex = exercises[currentExIdx]
+    const repQuality = skipped || ex.default_reps <= 0
+      ? 0
+      : Math.min(100, Math.round((repCount / ex.default_reps) * 100))
+    const avgFatigue = skipped || fatigueSamplesRef.current.length === 0
+      ? null
+      : Math.round(
+          fatigueSamplesRef.current.reduce((sum, val) => sum + val, 0) /
+          fatigueSamplesRef.current.length,
+        )
     const result: ExerciseResult = {
       id: ex.id,
       name: ex.name,
       reps: skipped ? 0 : repCount,
       duration: skipped ? 0 : timer,
       skipped,
+      repQuality,
+      avgFatigue,
     }
     const newResults = [...exerciseResults, result]
     setExerciseResults(newResults)
     setRepCount(0)
     setTimer(0)
+    fatigueSamplesRef.current = []
 
     if (currentExIdx + 1 < exercises.length) {
       setCurrentExIdx(i => i + 1)
@@ -295,6 +337,87 @@ export default function Rehab() {
     return { physicalScore, cognitiveScore, overallScore, xpEarned }
   }
 
+  const computeSessionMetrics = () => {
+    const totalEx = exerciseResults.length
+    const completedExercises = exerciseResults.filter(r => !r.skipped)
+    const completionRate = totalEx > 0 ? (completedExercises.length / totalEx) * 100 : 0
+
+    const avgRepQuality = completedExercises.length > 0
+      ? completedExercises.reduce((sum, r) => sum + r.repQuality, 0) / completedExercises.length
+      : 0
+
+    const fatigueValues = completedExercises
+      .map(r => r.avgFatigue)
+      .filter((v): v is number => typeof v === 'number')
+    const avgFatigue = fatigueValues.length > 0
+      ? fatigueValues.reduce((sum, v) => sum + v, 0) / fatigueValues.length
+      : null
+
+    const completedGames = gameResults.filter(g => !g.skipped)
+    const avgCognitiveAccuracy = completedGames.length > 0
+      ? completedGames.reduce((sum, g) => sum + g.accuracy, 0) / completedGames.length
+      : 0
+
+    return {
+      completionRate,
+      avgRepQuality,
+      avgFatigue,
+      avgCognitiveAccuracy,
+    }
+  }
+
+  const getProgressInsights = (
+    currentPhysical: number,
+    currentCognitive: number,
+    currentOverall: number,
+  ) => {
+    const metrics = computeSessionMetrics()
+    const previous = history.length > 0 ? history[0] : null
+
+    const progress = {
+      previousDate: previous?.date ?? null,
+      physicalDelta: previous ? currentPhysical - previous.physicalScore : null,
+      cognitiveDelta: previous ? currentCognitive - previous.cognitiveScore : null,
+      overallDelta: previous ? currentOverall - previous.overallScore : null,
+      completionRate: Math.round(metrics.completionRate),
+      repQuality: Math.round(metrics.avgRepQuality),
+      cognitiveAccuracy: Math.round(metrics.avgCognitiveAccuracy),
+      fatigue: metrics.avgFatigue !== null ? Math.round(metrics.avgFatigue) : null,
+      messages: [] as string[],
+    }
+
+    if (!previous) {
+      progress.messages.push('This is your first recorded session. Future reports will include trend comparisons.')
+      return progress
+    }
+
+    if ((progress.overallDelta ?? 0) > 0) {
+      progress.messages.push(`Overall score improved by +${progress.overallDelta}% compared to ${previous.date}.`)
+    } else if ((progress.overallDelta ?? 0) < 0) {
+      progress.messages.push(`Overall score changed by ${progress.overallDelta}% compared to ${previous.date}.`)
+    } else {
+      progress.messages.push(`Overall score is unchanged from ${previous.date}.`)
+    }
+
+    if (progress.completionRate < 100) {
+      progress.messages.push(`Exercise completion is ${progress.completionRate}%. Completing all physical tasks will improve recovery trends.`)
+    }
+
+    if (progress.repQuality < 70) {
+      progress.messages.push(`Rep quality is ${progress.repQuality}%. Focus on full-range, slower reps for better motor gains.`)
+    }
+
+    if (progress.fatigue !== null && progress.fatigue > 70) {
+      progress.messages.push(`Average fatigue is high (${progress.fatigue}/100). Add short rest intervals between sets.`)
+    }
+
+    if (progress.cognitiveAccuracy < 70) {
+      progress.messages.push(`Cognitive accuracy is ${progress.cognitiveAccuracy}%. Prioritize accuracy before speed.`)
+    }
+
+    return progress
+  }
+
   const endSession = () => {
     const { physicalScore, cognitiveScore, overallScore, xpEarned } = computeScores()
     const record: SessionRecord = {
@@ -315,16 +438,187 @@ export default function Rehab() {
     setPhase('hub')
   }
 
-  const getTips = () => {
-    const tips: Record<string, string> = {
-      stroke: 'Focus on repetitive arm and leg movements every day to rebuild motor pathways.',
-      parkinsons: 'Tai chi and balance exercises significantly reduce fall risk. Try daily.',
-      acl_rehab: 'Quad-strengthening and balance training are key during this phase.',
-      frozen_shoulder: 'Pendulum exercises twice a day will gradually restore your ROM.',
-      knee_replacement: 'Short walks and stair practice are your best friends right now.',
-      default: 'Consistency beats intensity. Even 20 mins daily will create lasting results.',
+  const getDynamicTip = (overallScore: number) => {
+    const { completionRate, avgRepQuality, avgFatigue, avgCognitiveAccuracy } = computeSessionMetrics()
+
+    if (completionRate < 70) {
+      return `You completed ${Math.round(completionRate)}% of physical exercises. Finish all 3 next session for faster recovery progress.`
     }
-    return tips[disease] || tips['default']
+
+    if (avgRepQuality < 60) {
+      return `Rep quality is ${Math.round(avgRepQuality)}%. Slow down and aim for fuller range on each rep before increasing speed.`
+    }
+
+    if (avgFatigue !== null && avgFatigue > 70) {
+      return `Average fatigue is ${Math.round(avgFatigue)}/100. Add 45-60 second rest breaks between sets and keep movement controlled.`
+    }
+
+    if (avgCognitiveAccuracy < 65) {
+      return `Cognitive accuracy is ${Math.round(avgCognitiveAccuracy)}%. Reduce distractions and focus on accuracy before speed in games.`
+    }
+
+    if (overallScore >= 85 && avgRepQuality >= 80 && avgCognitiveAccuracy >= 80) {
+      return `Excellent session: ${overallScore}% overall with strong physical and cognitive performance. Keep this consistency for the next 7 days.`
+    }
+
+    return `Overall score is ${overallScore}%. Keep daily practice with controlled reps and steady pacing to keep improving week by week.`
+  }
+
+  const downloadReportPdf = () => {
+    const { physicalScore, cognitiveScore, overallScore, xpEarned } = computeScores()
+    const tip = getDynamicTip(overallScore)
+    const progress = getProgressInsights(physicalScore, cognitiveScore, overallScore)
+    const diseaseName = disease === 'other' ? customDisease : (CONDITIONS.find(c => c.id === disease)?.label || disease)
+    const sessionDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const left = 42
+    const contentWidth = pageWidth - left * 2
+    let y = 42
+
+    const ensureSpace = (needed: number) => {
+      if (y + needed > 790) {
+        doc.addPage()
+        y = 42
+      }
+    }
+
+    const sectionHeader = (title: string, color: [number, number, number]) => {
+      ensureSpace(30)
+      doc.setFillColor(color[0], color[1], color[2])
+      doc.roundedRect(left, y, contentWidth, 24, 6, 6, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text(title, left + 10, y + 16)
+      y += 34
+      doc.setTextColor(40, 48, 64)
+    }
+
+    const metricCard = (x: number, title: string, value: string, bg: [number, number, number]) => {
+      doc.setFillColor(bg[0], bg[1], bg[2])
+      doc.roundedRect(x, y, 160, 60, 8, 8, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(18)
+      doc.setTextColor(30, 40, 55)
+      doc.text(value, x + 12, y + 28)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.text(title, x + 12, y + 46)
+    }
+
+    const drawTable = (headers: string[], rows: string[][]) => {
+      ensureSpace(32 + rows.length * 24)
+      const tableWidth = contentWidth
+      const colWidths = headers.map(() => tableWidth / headers.length)
+
+      doc.setFillColor(245, 248, 252)
+      doc.rect(left, y, tableWidth, 24, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      headers.forEach((h, i) => {
+        doc.text(h, left + colWidths.slice(0, i).reduce((a, b) => a + b, 0) + 8, y + 16)
+      })
+      y += 24
+
+      doc.setFont('helvetica', 'normal')
+      rows.forEach((row, idx) => {
+        const rowBg = idx % 2 === 0 ? [255, 255, 255] as [number, number, number] : [250, 252, 255] as [number, number, number]
+        doc.setFillColor(rowBg[0], rowBg[1], rowBg[2])
+        doc.rect(left, y, tableWidth, 24, 'F')
+        row.forEach((cell, i) => {
+          doc.setFontSize(9)
+          const x = left + colWidths.slice(0, i).reduce((a, b) => a + b, 0) + 8
+          doc.text(doc.splitTextToSize(cell, colWidths[i] - 12), x, y + 15)
+        })
+        y += 24
+      })
+
+      doc.setDrawColor(220, 227, 238)
+      doc.rect(left, y - (24 * (rows.length + 1)), tableWidth, 24 * (rows.length + 1))
+      y += 10
+    }
+
+    doc.setFillColor(33, 44, 86)
+    doc.roundedRect(left, y, contentWidth, 56, 10, 10, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(20)
+    doc.text('NeuroRehab Medical Session Report', left + 14, y + 24)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text(`${sessionDate}   |   ${diseaseName}   |   Severity: ${severity}`, left + 14, y + 42)
+    y += 72
+    doc.setTextColor(40, 48, 64)
+
+    sectionHeader('Score Summary', [233, 141, 88])
+    metricCard(left, 'Physical Score', `${physicalScore}%`, [255, 243, 236])
+    metricCard(left + 170, 'Cognitive Score', `${cognitiveScore}%`, [241, 238, 255])
+    metricCard(left + 340, 'Overall / XP', `${overallScore}%  |  +${xpEarned} XP`, [232, 252, 242])
+    y += 72
+
+    sectionHeader('Progress vs Previous Session', [108, 135, 196])
+    const delta = (val: number | null) => (val === null ? 'N/A' : `${val > 0 ? '+' : ''}${val}%`)
+    const previousLabel = progress.previousDate ? `Compared to ${progress.previousDate}` : 'No previous session available'
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text(previousLabel, left + 2, y)
+    y += 16
+    drawTable(
+      ['Metric', 'Current', 'Delta'],
+      [
+        ['Physical', `${physicalScore}%`, delta(progress.physicalDelta)],
+        ['Cognitive', `${cognitiveScore}%`, delta(progress.cognitiveDelta)],
+        ['Overall', `${overallScore}%`, delta(progress.overallDelta)],
+        ['Exercise Completion', `${progress.completionRate}%`, '—'],
+        ['Rep Quality', `${progress.repQuality}%`, '—'],
+        ['Cognitive Accuracy', `${progress.cognitiveAccuracy}%`, '—'],
+        ['Avg Fatigue', progress.fatigue === null ? 'N/A' : `${progress.fatigue}/100`, '—'],
+      ],
+    )
+
+    sectionHeader('Exercise Breakdown', [92, 168, 122])
+    drawTable(
+      ['Exercise', 'Reps', 'Duration', 'Quality', 'Status'],
+      exerciseResults.map((r) => [
+        r.name,
+        `${r.reps}`,
+        formatTime(r.duration),
+        `${r.repQuality}%`,
+        r.skipped ? 'Skipped' : 'Done',
+      ]),
+    )
+
+    sectionHeader('Cognitive Breakdown', [138, 112, 199])
+    drawTable(
+      ['Game', 'Score', 'Accuracy', 'Status'],
+      gameResults.map((g) => [
+        g.name,
+        `${g.score}`,
+        `${Math.round(g.accuracy)}%`,
+        g.skipped ? 'Skipped' : 'Done',
+      ]),
+    )
+
+    sectionHeader('Clinical Notes', [93, 79, 172])
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text('Dynamic Recovery Tip', left + 4, y)
+    y += 14
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text(doc.splitTextToSize(tip, contentWidth - 8), left + 4, y)
+    y += 26
+    progress.messages.slice(0, 3).forEach((msg) => {
+      ensureSpace(24)
+      doc.setFontSize(9)
+      doc.text(`- ${msg}`, left + 6, y)
+      y += 14
+    })
+
+    const fileDate = sessionDate.replace(/\s+/g, '-').toLowerCase()
+    doc.save(`neurorehab-report-${fileDate}.pdf`)
   }
 
   // ─── Render: Hub ──────────────────────────────────────────────────────
@@ -539,7 +833,7 @@ export default function Rehab() {
           {/* Info box */}
           <div className="flex gap-3 p-4 rounded-xl bg-accent-light border border-accent-200">
             <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-accent-dark">You'll complete <b>4 physical exercises</b> via webcam, then <b>4 cognitive games</b>. You can skip any step — but it will affect your score.</p>
+            <p className="text-sm text-accent-dark">You'll complete <b>3 physical exercises</b> via webcam, then <b>4 cognitive games</b>. You can skip any step — but it will affect your score.</p>
           </div>
 
           <button
@@ -598,12 +892,13 @@ export default function Rehab() {
         </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Webcam */}
+          {/* Webcam — left 2 cols */}
           <div className="lg:col-span-2">
             {sessionActive ? (
               <WebcamFeed
-                sessionId={`zen-${Date.now()}`}
-                exerciseName={currentEx.name}
+                sessionId={currentSessionId}
+                exercise={currentEx}
+                onPoseFrame={handlePoseFrame}
                 onRepCounted={handleRepCounted}
                 onFeedback={handleFeedback}
               />
@@ -623,30 +918,26 @@ export default function Rehab() {
             )}
           </div>
 
-          {/* Stats panel */}
-          <div className="space-y-4">
-            <div className="glass-card p-5 text-center">
-              <p className="text-text-muted text-sm mb-1">Reps Completed</p>
-              <p className="text-5xl font-black text-accent">{repCount}</p>
-              <p className="text-text-muted text-xs mt-1">/ {currentEx.default_reps} target</p>
-              <div className="w-full h-2 rounded-full bg-page mt-3 border border-border">
-                <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${Math.min((repCount / currentEx.default_reps) * 100, 100)}%` }} />
-              </div>
-            </div>
-            <div className="glass-card p-5 text-center">
-              <Clock className="w-5 h-5 text-text-muted mx-auto mb-1" />
-              <p className="text-3xl font-bold font-mono text-text-primary">{formatTime(timer)}</p>
-              <p className="text-xs text-text-muted">Duration</p>
-            </div>
-            <div className="glass-card p-4 space-y-2">
-              <p className="text-xs font-bold text-text-muted uppercase tracking-widest">Exercise Info</p>
-              <div className="flex justify-between text-sm"><span className="text-text-muted">Target ROM</span><span className="font-medium text-text-primary">{currentEx.target_rom_min}°–{currentEx.target_rom_max}°</span></div>
-              <div className="flex justify-between text-sm"><span className="text-text-muted">Primary Joints</span><span className="font-medium text-text-primary capitalize">{currentEx.primary_joints.join(', ')}</span></div>
-            </div>
+          {/* Digital Twin + Actions — right col */}
+          <div className="space-y-3">
+            <DigitalTwin
+              exerciseName={currentEx.name}
+              primaryJoints={currentEx.primary_joints}
+              targetRomMin={currentEx.target_rom_min}
+              targetRomMax={currentEx.target_rom_max}
+              repCount={repCount}
+              targetReps={currentEx.default_reps}
+              liveData={liveData ?? undefined}
+              isActive={sessionActive}
+            />
 
-            {/* Actions */}
-            <div className="space-y-2 pt-2">
-              {sessionActive && (
+            {/* Action buttons */}
+            <div className="space-y-2">
+              {!sessionActive ? (
+                <button onClick={beginExercise} className="btn-primary w-full flex items-center justify-center gap-2">
+                  <Play className="w-4 h-4 fill-white" /> Start Webcam
+                </button>
+              ) : (
                 <button onClick={() => finishExercise(false)} className="btn-primary w-full flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-4 h-4" /> Mark Complete
                 </button>
@@ -654,6 +945,12 @@ export default function Rehab() {
               <button onClick={() => finishExercise(true)} className="btn-secondary w-full flex items-center justify-center gap-2 text-danger border-danger/30 hover:bg-danger/5">
                 <SkipForward className="w-4 h-4" /> Skip Exercise (−15%)
               </button>
+            </div>
+
+            {/* Exercise info */}
+            <div className="glass-card p-3 text-center">
+              <p className="text-3xl font-black text-accent">{formatTime(timer)}</p>
+              <p className="text-xs text-text-muted mt-1">Session Duration</p>
             </div>
           </div>
         </div>
@@ -719,7 +1016,8 @@ export default function Rehab() {
 
   if (phase === 'report') {
     const { physicalScore, cognitiveScore, overallScore, xpEarned } = computeScores()
-    const tip = getTips()
+    const tip = getDynamicTip(overallScore)
+    const progress = getProgressInsights(physicalScore, cognitiveScore, overallScore)
     const diseaseName = disease === 'other' ? customDisease : (CONDITIONS.find(c => c.id === disease)?.label || disease)
 
     return (
@@ -762,6 +1060,47 @@ export default function Rehab() {
               <span className="font-bold text-accent-dark">XP Earned This Session</span>
             </div>
             <span className="text-3xl font-black text-accent">+{xpEarned}</span>
+          </div>
+
+          {/* Progress vs Previous Sessions */}
+          <div className="space-y-3 p-5 rounded-2xl bg-blue-50 border border-blue-100">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-blue-700 uppercase tracking-widest">Progress vs Previous Session</p>
+              <p className="text-xs text-blue-700/80">{progress.previousDate ? `Compared to ${progress.previousDate}` : 'First session baseline'}</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl bg-white border border-blue-100">
+                <p className="text-[11px] text-text-muted">Physical</p>
+                <p className="text-lg font-bold text-text-primary">{physicalScore}%</p>
+                <p className={`text-xs font-semibold ${(progress.physicalDelta ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                  {progress.physicalDelta === null ? 'N/A' : `${progress.physicalDelta > 0 ? '+' : ''}${progress.physicalDelta}%`}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-blue-100">
+                <p className="text-[11px] text-text-muted">Cognitive</p>
+                <p className="text-lg font-bold text-text-primary">{cognitiveScore}%</p>
+                <p className={`text-xs font-semibold ${(progress.cognitiveDelta ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                  {progress.cognitiveDelta === null ? 'N/A' : `${progress.cognitiveDelta > 0 ? '+' : ''}${progress.cognitiveDelta}%`}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-blue-100">
+                <p className="text-[11px] text-text-muted">Overall</p>
+                <p className="text-lg font-bold text-text-primary">{overallScore}%</p>
+                <p className={`text-xs font-semibold ${(progress.overallDelta ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                  {progress.overallDelta === null ? 'N/A' : `${progress.overallDelta > 0 ? '+' : ''}${progress.overallDelta}%`}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-blue-100">
+                <p className="text-[11px] text-text-muted">Rep Quality</p>
+                <p className="text-lg font-bold text-text-primary">{progress.repQuality}%</p>
+                <p className="text-xs font-semibold text-blue-700">Fatigue: {progress.fatigue === null ? 'N/A' : `${progress.fatigue}/100`}</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {progress.messages.slice(0, 3).map((msg, idx) => (
+                <p key={idx} className="text-xs text-text-secondary">• {msg}</p>
+              ))}
+            </div>
           </div>
 
           {/* Exercise breakdown */}
@@ -815,9 +1154,14 @@ export default function Rehab() {
             </div>
           </div>
 
-          <button onClick={endSession} className="btn-primary w-full py-4 text-base flex items-center justify-center gap-2">
-            End Session & Save Report <ChevronRight className="w-5 h-5" />
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onClick={downloadReportPdf} className="btn-secondary w-full py-4 text-base flex items-center justify-center gap-2">
+              Download PDF Report
+            </button>
+            <button onClick={endSession} className="btn-primary w-full py-4 text-base flex items-center justify-center gap-2">
+              End Session & Save Report <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </motion.div>
       </div>
     )

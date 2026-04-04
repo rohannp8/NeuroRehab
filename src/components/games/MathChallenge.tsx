@@ -1,5 +1,15 @@
 import { useState } from 'react'
 
+function randomInt(max: number): number {
+  const bytes = new Uint32Array(1)
+  crypto.getRandomValues(bytes)
+  return bytes[0] % max
+}
+
+function randomChance(): number {
+  return randomInt(1000) / 1000
+}
+
 export default function MathChallenge({ onComplete }: { onComplete: (score: number, accuracy: number) => void }) {
   const [round, setRound] = useState(0)
   const [equation, setEquation] = useState('')
@@ -13,9 +23,9 @@ export default function MathChallenge({ onComplete }: { onComplete: (score: numb
       return
     }
 
-    const a = Math.floor(Math.random() * 20) + 1
-    const b = Math.floor(Math.random() * 20) + 1
-    const op = Math.random() > 0.5 ? '+' : '-'
+    const a = randomInt(20) + 1
+    const b = randomInt(20) + 1
+    const op = randomChance() > 0.5 ? '+' : '-'
     
     let ans = a + b
     let eq = `${a} + ${b} = ?`
@@ -33,7 +43,7 @@ export default function MathChallenge({ onComplete }: { onComplete: (score: numb
     // Generate distractors
     const opts = [ans]
     while(opts.length < 4) {
-      const dist = ans + (Math.floor(Math.random() * 10) - 5)
+      const dist = ans + (randomInt(10) - 5)
       if (dist >= 0 && !opts.includes(dist)) opts.push(dist)
     }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Leaf, Play, Pause, RotateCcw, Volume2, VolumeX,
@@ -14,6 +14,25 @@ interface SoundOption {
   // We'll use Web Audio API to generate ambient tones
   frequency: number
   type: OscillatorType
+}
+
+function randomFloatMinusOneToOne(): number {
+  const bytes = new Uint32Array(1)
+  crypto.getRandomValues(bytes)
+  return (bytes[0] / 0xffffffff) * 2 - 1
+}
+
+function createWhiteNoiseBuffer(ctx: AudioContext): AudioBufferSourceNode {
+  const bufferSize = 2 * ctx.sampleRate
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = randomFloatMinusOneToOne()
+  }
+  const source = ctx.createBufferSource()
+  source.buffer = buffer
+  source.loop = true
+  return source
 }
 
 const sounds: SoundOption[] = [
@@ -46,20 +65,6 @@ export default function Meditation() {
 
   const totalSeconds = selectedDuration * 60
 
-  // Generate white noise buffer
-  const createWhiteNoise = useCallback((ctx: AudioContext) => {
-    const bufferSize = 2 * ctx.sampleRate
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-    const data = buffer.getChannelData(0)
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1
-    }
-    const source = ctx.createBufferSource()
-    source.buffer = buffer
-    source.loop = true
-    return source
-  }, [])
-
   const fileInputRef = useRef<HTMLInputElement>(null)
   const customAudioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -85,7 +90,7 @@ export default function Meditation() {
     }
   }
 
-  const startAudio = useCallback((soundToPlay = selectedSound) => {
+  const startAudio = (soundToPlay = selectedSound) => {
     if (soundToPlay.id === 'custom' && customAudioRef.current) {
       customAudioRef.current.volume = isMuted ? 0 : 0.5
       customAudioRef.current.play()
@@ -101,7 +106,7 @@ export default function Meditation() {
     let source: AudioBufferSourceNode | OscillatorNode
 
     if (soundToPlay.id === 'white') {
-      source = createWhiteNoise(ctx)
+      source = createWhiteNoiseBuffer(ctx)
     } else {
       const osc = ctx.createOscillator()
       osc.type = soundToPlay.type
@@ -120,9 +125,9 @@ export default function Meditation() {
     gain.connect(ctx.destination)
     source.start()
     sourceRef.current = source
-  }, [selectedSound, createWhiteNoise, isMuted])
+  }
 
-  const stopAudio = useCallback(() => {
+  const stopAudio = () => {
     if (customAudioRef.current) {
       customAudioRef.current.pause()
       customAudioRef.current.currentTime = 0
@@ -133,20 +138,24 @@ export default function Meditation() {
     audioCtxRef.current?.close()
     audioCtxRef.current = null
     sourceRef.current = null
-  }, [])
+  }
 
   // Timer countdown
   useEffect(() => {
     if (!isPlaying) return
-    if (timeLeft <= 0) {
-      setIsPlaying(false)
-      setSessionComplete(true)
-      stopAudio()
-      return
-    }
-    const t = setInterval(() => setTimeLeft((s) => s - 1), 1000)
+    const t = setInterval(() => {
+      setTimeLeft((s) => {
+        if (s <= 1) {
+          setIsPlaying(false)
+          setSessionComplete(true)
+          stopAudio()
+          return 0
+        }
+        return s - 1
+      })
+    }, 1000)
     return () => clearInterval(t)
-  }, [isPlaying, timeLeft, stopAudio])
+  }, [isPlaying])
 
   const togglePlay = () => {
     if (isPlaying) {
@@ -196,7 +205,7 @@ export default function Meditation() {
   }
 
   // Cleanup
-  useEffect(() => () => stopAudio(), [stopAudio])
+  useEffect(() => () => stopAudio(), [])
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60)

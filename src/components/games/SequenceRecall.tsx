@@ -1,4 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+
+function randomInt(max: number): number {
+  const bytes = new Uint32Array(1)
+  crypto.getRandomValues(bytes)
+  return bytes[0] % max
+}
 
 export default function SequenceRecall({ onComplete }: { onComplete: (score: number, accuracy: number) => void }) {
   const [sequence, setSequence] = useState<number[]>([])
@@ -9,19 +15,13 @@ export default function SequenceRecall({ onComplete }: { onComplete: (score: num
   const [gameOver, setGameOver] = useState(false)
 
   const startGame = () => {
-    setSequence([Math.floor(Math.random() * 9)])
+    setSequence([randomInt(9)])
     setUserSequence([])
     setRound(1)
     setGameOver(false)
   }
 
-  useEffect(() => {
-    if (round > 0 && !gameOver) {
-      playSequence()
-    }
-  }, [round])
-
-  const playSequence = async () => {
+  const playSequence = useCallback(async () => {
     setIsPlayingSequence(true)
     for (let i = 0; i < sequence.length; i++) {
       await new Promise(r => setTimeout(r, 400))
@@ -30,7 +30,16 @@ export default function SequenceRecall({ onComplete }: { onComplete: (score: num
       setActiveCell(null)
     }
     setIsPlayingSequence(false)
-  }
+  }, [sequence])
+
+  useEffect(() => {
+    if (round > 0 && !gameOver) {
+      const timer = window.setTimeout(() => {
+        void playSequence()
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+  }, [round, gameOver, playSequence])
 
   const handleCellClick = (index: number) => {
     if (isPlayingSequence || gameOver) return
@@ -51,7 +60,7 @@ export default function SequenceRecall({ onComplete }: { onComplete: (score: num
         setTimeout(() => onComplete(100, 100), 1000)
       } else {
         setTimeout(() => {
-          setSequence([...sequence, Math.floor(Math.random() * 9)])
+          setSequence([...sequence, randomInt(9)])
           setUserSequence([])
           setRound(r => r + 1)
         }, 1000)

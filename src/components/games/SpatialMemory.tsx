@@ -1,4 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+
+function randomInt(max: number): number {
+  const bytes = new Uint32Array(1)
+  crypto.getRandomValues(bytes)
+  return bytes[0] % max
+}
 
 export default function SpatialMemory({ onComplete }: { onComplete: (score: number, accuracy: number) => void }) {
   const [phase, setPhase] = useState<'intro' | 'show' | 'recall'>('intro')
@@ -10,7 +16,7 @@ export default function SpatialMemory({ onComplete }: { onComplete: (score: numb
     const numTargets = 2 + round
     const targets: number[] = []
     while(targets.length < numTargets) {
-      const r = Math.floor(Math.random() * 9)
+      const r = randomInt(9)
       if(!targets.includes(r)) targets.push(r)
     }
     setTargetCells(targets)

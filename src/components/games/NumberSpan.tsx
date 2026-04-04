@@ -18,14 +18,17 @@ export default function NumberSpan({ onComplete }: { onComplete: (score: number,
   }
 
   useEffect(() => {
-    if (phase === 'show' && currentIdx < sequence.length) {
-      const timer = setTimeout(() => {
+    if (phase !== 'show' || currentIdx < 0) return
+
+    const timer = setTimeout(() => {
+      if (currentIdx >= sequence.length - 1) {
+        setPhase('input')
+      } else {
         setCurrentIdx(c => c + 1)
-      }, 1000)
-      return () => clearTimeout(timer)
-    } else if (phase === 'show' && currentIdx >= sequence.length) {
-      setPhase('input')
-    }
+      }
+    }, 1000)
+
+    return () => clearTimeout(timer)
   }, [phase, currentIdx, sequence.length])
 
   const handleSubmit = (e: React.FormEvent) => {

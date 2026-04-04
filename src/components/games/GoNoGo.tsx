@@ -1,11 +1,21 @@
 import { useState, useRef } from 'react'
 
+function randomInt(max: number): number {
+  const bytes = new Uint32Array(1)
+  crypto.getRandomValues(bytes)
+  return bytes[0] % max
+}
+
+function randomChance(): number {
+  return randomInt(1000) / 1000
+}
+
 export default function GoNoGo({ onComplete }: { onComplete: (score: number, accuracy: number) => void }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [color, setColor] = useState<'red' | 'green' | 'none'>('none')
   const [score, setScore] = useState(0)
   const [trials, setTrials] = useState(0)
-  const timerRef = useRef<any>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const startGame = () => {
     setIsPlaying(true)
@@ -22,9 +32,9 @@ export default function GoNoGo({ onComplete }: { onComplete: (score: number, acc
     }
 
     setColor('none')
-    const delay = Math.random() * 1000 + 500
+    const delay = randomInt(1000) + 500
     timerRef.current = setTimeout(() => {
-      setColor(Math.random() > 0.3 ? 'green' : 'red')
+      setColor(randomChance() > 0.3 ? 'green' : 'red')
       setTrials(t => t + 1)
       
       timerRef.current = setTimeout(() => {
@@ -36,10 +46,10 @@ export default function GoNoGo({ onComplete }: { onComplete: (score: number, acc
   const handleClick = () => {
     if (color === 'green') {
       setScore(s => s + 1)
-      clearTimeout(timerRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
       nextTrial(trials)
     } else if (color === 'red') {
-      clearTimeout(timerRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
       nextTrial(trials)
     }
   }

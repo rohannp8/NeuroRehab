@@ -1,5 +1,20 @@
 import { useState } from 'react'
 
+function randomInt(max: number): number {
+  const bytes = new Uint32Array(1)
+  crypto.getRandomValues(bytes)
+  return bytes[0] % max
+}
+
+function shuffleArray<T>(items: T[]): T[] {
+  const arr = [...items]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
 const SYMBOLS = ['🔷', '🔶', '🔺', '🟢', '🟪', '🔵']
 
 export default function OddOneOut({ onComplete }: { onComplete: (score: number, accuracy: number) => void }) {
@@ -15,13 +30,13 @@ export default function OddOneOut({ onComplete }: { onComplete: (score: number, 
     }
 
     // Pick a base and an odd one
-    const shuffled = [...SYMBOLS].sort(() => 0.5 - Math.random())
+    const shuffled = shuffleArray(SYMBOLS)
     const base = shuffled[0]
     const odd = shuffled[1]
 
     // Create 9 items
     const grid = Array(9).fill(base)
-    const oddIdx = Math.floor(Math.random() * 9)
+    const oddIdx = randomInt(9)
     grid[oddIdx] = odd
 
     setItems(grid)

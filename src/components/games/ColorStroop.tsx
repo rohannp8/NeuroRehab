@@ -1,5 +1,15 @@
 import { useState } from 'react'
 
+function randomInt(max: number): number {
+  const bytes = new Uint32Array(1)
+  crypto.getRandomValues(bytes)
+  return bytes[0] % max
+}
+
+function randomChance(): number {
+  return randomInt(1000) / 1000
+}
+
 const COLORS = [
   { name: 'RED', hex: '#ef4444' },
   { name: 'BLUE', hex: '#3b82f6' },
@@ -20,12 +30,12 @@ export default function ColorStroop({ onComplete }: { onComplete: (score: number
     }
     
     // Pick random word and random color (often mismatched)
-    const newWord = COLORS[Math.floor(Math.random() * COLORS.length)]
-    let newColor = COLORS[Math.floor(Math.random() * COLORS.length)]
+    const newWord = COLORS[randomInt(COLORS.length)]
+    let newColor = COLORS[randomInt(COLORS.length)]
     // 70% chance they are different
-    if (Math.random() > 0.3) {
+    if (randomChance() > 0.3) {
       while(newColor.name === newWord.name) {
-        newColor = COLORS[Math.floor(Math.random() * COLORS.length)]
+        newColor = COLORS[randomInt(COLORS.length)]
       }
     }
     

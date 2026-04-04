@@ -15,12 +15,10 @@ export const mockUser: UserProfile = {
 }
 
 export const mockExercises: Exercise[] = [
-  { id: 'ex-1', name: 'Shoulder Flexion', condition_ids: ['stroke', 'frozen_shoulder'], primary_joints: ['shoulder'], target_rom_min: 0, target_rom_max: 150, default_reps: 10, difficulty: 1, description: 'Slowly raise your arm forward and overhead, keeping elbow straight.' },
-  { id: 'ex-2', name: 'Elbow Extension', condition_ids: ['stroke', 'fracture_elbow'], primary_joints: ['elbow'], target_rom_min: 0, target_rom_max: 140, default_reps: 12, difficulty: 1, description: 'Straighten your arm fully from a bent position.' },
-  { id: 'ex-3', name: 'Knee Flexion', condition_ids: ['stroke', 'acl_rehab', 'knee_replacement'], primary_joints: ['knee'], target_rom_min: 0, target_rom_max: 130, default_reps: 10, difficulty: 2, description: 'Bend your knee bringing heel toward your body.' },
-  { id: 'ex-4', name: 'Hip Abduction', condition_ids: ['stroke', 'hip_replacement'], primary_joints: ['hip'], target_rom_min: 0, target_rom_max: 45, default_reps: 10, difficulty: 2, description: 'Move your leg outward away from midline while standing.' },
-  { id: 'ex-5', name: 'Wrist Rotation', condition_ids: ['stroke', 'carpal_tunnel'], primary_joints: ['wrist'], target_rom_min: 0, target_rom_max: 80, default_reps: 15, difficulty: 1, description: 'Rotate wrist clockwise and counterclockwise.' },
-  { id: 'ex-6', name: 'Ankle Dorsiflexion', condition_ids: ['stroke', 'ankle_sprain'], primary_joints: ['ankle'], target_rom_min: 0, target_rom_max: 20, default_reps: 12, difficulty: 3, description: 'Pull your foot up toward your shin.' },
+  { id: 'ex-1', name: 'Finger Tapping', condition_ids: ['stroke', 'parkinsons', 'carpal_tunnel'], primary_joints: ['fingers'], target_rom_min: 0, target_rom_max: 1, default_reps: 20, difficulty: 1, description: 'Tap thumb to index finger repeatedly at a steady pace.' },
+  { id: 'ex-4', name: 'Fist Stretch', condition_ids: ['stroke', 'parkinsons', 'carpal_tunnel'], primary_joints: ['fingers'], target_rom_min: 1.4, target_rom_max: 2.8, default_reps: 15, difficulty: 1, description: 'Open your hand fully, then close into a fist with control.' },
+  { id: 'ex-2', name: 'Arm Extension', condition_ids: ['stroke', 'fracture_elbow', 'frozen_shoulder'], primary_joints: ['elbow'], target_rom_min: 20, target_rom_max: 165, default_reps: 12, difficulty: 1, description: 'Extend your arm from bent to straight and return with control.' },
+  { id: 'ex-3', name: 'Wrist Flexion', condition_ids: ['stroke', 'carpal_tunnel'], primary_joints: ['wrist'], target_rom_min: 10, target_rom_max: 70, default_reps: 15, difficulty: 1, description: 'Bend your wrist forward and back through a comfortable range.' },
 ]
 
 export const mockLeaderboard: LeaderboardEntry[] = [
