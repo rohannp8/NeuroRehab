@@ -4,13 +4,11 @@ import {
   Heart, Dumbbell, Brain, BarChart3, Play, ChevronRight,
   SkipForward, CheckCircle2, Clock, Trophy, Zap, Target,
   History, ArrowLeft, Sparkles, AlertCircle, Plus,
-  Activity, Calendar, Medal, WifiOff
+  Activity, Calendar, Medal
 } from 'lucide-react'
 import { mockExercises, CONDITIONS } from '../mockData'
 import type { Exercise } from '../types'
 import WebcamFeed from '../components/WebcamFeed'
-import OfflineExercisePlayer from '../components/OfflineExercisePlayer'
-import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import SequenceRecall from '../components/games/SequenceRecall'
 import PatternMatrix from '../components/games/PatternMatrix'
 import WordRecall from '../components/games/WordRecall'
@@ -172,8 +170,6 @@ export default function Rehab() {
   // History
   const [history, setHistory] = useState<SessionRecord[]>(loadHistory)
   const [viewingSession, setViewingSession] = useState<SessionRecord | null>(null)
-
-  const isOnline = useOnlineStatus()
 
   // Timer effect during exercise
   useEffect(() => {
@@ -601,20 +597,10 @@ export default function Rehab() {
           )}
         </AnimatePresence>
 
-        {/* Offline banner */}
-        {!isOnline && (
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-warn/10 border border-warn/30 mb-2">
-            <WifiOff className="w-4 h-4 text-warn flex-shrink-0" />
-            <p className="text-sm text-warn-dark font-medium">You're offline — using Reference Mode. Follow the animated guide and tap to count your reps manually.</p>
-          </div>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Webcam (online) or Offline Reference Player */}
+          {/* Webcam */}
           <div className="lg:col-span-2">
-            {!isOnline ? (
-              <OfflineExercisePlayer exercise={currentEx} onRepCounted={handleRepCounted} />
-            ) : sessionActive ? (
+            {sessionActive ? (
               <WebcamFeed
                 sessionId={`zen-${Date.now()}`}
                 exerciseName={currentEx.name}
