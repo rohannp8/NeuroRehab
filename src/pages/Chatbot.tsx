@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { BotMessageSquare, Send, User, Sparkles, Mic } from 'lucide-react'
+import { BotMessageSquare, Send, User, Sparkles, Mic, WifiOff } from 'lucide-react'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 
 interface Message {
   id: string
@@ -119,6 +120,8 @@ export default function Chatbot() {
     }
   }
 
+  const isOnline = useOnlineStatus()
+
   return (
     <div className="max-w-4xl mx-auto h-[calc(100vh-8rem)] flex flex-col space-y-4">
       {/* Header */}
@@ -131,6 +134,17 @@ export default function Chatbot() {
           <p className="text-sm text-text-muted">General guidance & support</p>
         </div>
       </div>
+
+      {/* Offline warning */}
+      {!isOnline && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-warn/10 border border-warn/30">
+          <WifiOff className="w-5 h-5 text-warn flex-shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-warn-dark">You're currently offline</p>
+            <p className="text-xs text-warn-dark/80 mt-0.5">The AI Assistant requires an internet connection to respond. Please reconnect and try again.</p>
+          </div>
+        </div>
+      )}
 
       {/* Chat Window */}
       <motion.div 

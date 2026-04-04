@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import {
   LayoutDashboard,
   Activity,
@@ -14,6 +15,7 @@ import {
   Sparkles,
   Leaf,
   BotMessageSquare,
+  WifiOff,
 } from 'lucide-react'
 import { mockNotifications } from '../mockData'
 
@@ -32,6 +34,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showNotifs, setShowNotifs] = useState(false)
+  const isOnline = useOnlineStatus()
 
   const handleLogout = () => {
     setUser(null)
@@ -130,6 +133,13 @@ export default function Layout() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Offline banner */}
+            {!isOnline && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warn/10 border border-warn/30 text-warn-dark text-xs font-semibold">
+                <WifiOff className="w-3.5 h-3.5" />
+                Offline Mode
+              </div>
+            )}
             {/* Notifications */}
             <div className="relative">
               <button

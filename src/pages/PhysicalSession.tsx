@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { mockExercises } from '../mockData'
 import type { Exercise } from '../types'
 import WebcamFeed from '../components/WebcamFeed'
+import OfflineExercisePlayer from '../components/OfflineExercisePlayer'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import {
-  Dumbbell, Play, Square, Clock, Zap, Award, X, ArrowLeft,
+  Dumbbell, Play, Square, Clock, Zap, Award, X, ArrowLeft, WifiOff,
 } from 'lucide-react'
 
 export default function PhysicalSession() {
@@ -16,6 +18,7 @@ export default function PhysicalSession() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [showSummary, setShowSummary] = useState(false)
   const [quality] = useState(85)
+  const isOnline = useOnlineStatus()
 
   useEffect(() => {
     if (!sessionActive) return
@@ -84,14 +87,25 @@ export default function PhysicalSession() {
           <button onClick={endExerciseSession} className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors">
             <ArrowLeft className="w-5 h-5" /> Back
           </button>
-          <button onClick={endExerciseSession} className="btn-secondary flex items-center gap-2 text-danger border-danger/30 hover:bg-danger-light">
-            <Square className="w-4 h-4" /> End Session
-          </button>
+          <div className="flex items-center gap-3">
+            {!isOnline && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-warn/10 border border-warn/30 text-warn-dark text-xs font-semibold">
+                <WifiOff className="w-3.5 h-3.5" /> Reference Mode
+              </div>
+            )}
+            <button onClick={endExerciseSession} className="btn-secondary flex items-center gap-2 text-danger border-danger/30 hover:bg-danger-light">
+              <Square className="w-4 h-4" /> End Session
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <WebcamFeed sessionId={sessionId} exerciseName={selectedExercise.name} onRepCounted={handleRepCounted} onFeedback={handleFeedback} />
+            {!isOnline ? (
+              <OfflineExercisePlayer exercise={selectedExercise} onRepCounted={handleRepCounted} />
+            ) : (
+              <WebcamFeed sessionId={sessionId} exerciseName={selectedExercise.name} onRepCounted={handleRepCounted} onFeedback={handleFeedback} />
+            )}
           </div>
 
           <div className="space-y-4">
