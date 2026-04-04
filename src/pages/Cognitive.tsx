@@ -1,10 +1,23 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { GameType } from '../types'
 import {
   Brain, Play, ArrowLeft, Trophy, Target, Clock, Zap,
   Grid3X3, Type, Hash, CircleDot, Palette, RotateCcw,
+  Calculator, Hexagon, Shapes
 } from 'lucide-react'
+
+// Import all 10 Games
+import SequenceRecall from '../components/games/SequenceRecall'
+import PatternMatrix from '../components/games/PatternMatrix'
+import WordRecall from '../components/games/WordRecall'
+import NumberSpan from '../components/games/NumberSpan'
+import GoNoGo from '../components/games/GoNoGo'
+import SpatialMemory from '../components/games/SpatialMemory'
+import ColorStroop from '../components/games/ColorStroop'
+import MathChallenge from '../components/games/MathChallenge'
+import OddOneOut from '../components/games/OddOneOut'
+import ShapeMatch from '../components/games/ShapeMatch'
 
 interface GameConfig {
   type: GameType
@@ -23,26 +36,10 @@ const games: GameConfig[] = [
   { type: 'go_no_go', name: 'Go / No-Go', domain: 'Inhibition', description: 'React to green, hold for red — test your reflexes', difficulty: 1, icon: CircleDot },
   { type: 'spatial_memory_grid', name: 'Spatial Memory', domain: 'Spatial', description: 'Remember which cells flash and click them back', difficulty: 2, icon: Grid3X3 },
   { type: 'color_word_stroop', name: 'Color Stroop', domain: 'Attention', description: 'Click the ink color, not the word itself', difficulty: 3, icon: Palette },
+  { type: 'math_challenge', name: 'Math Challenge', domain: 'Calculation', description: 'Solve arithmetic equations under pressure', difficulty: 2, icon: Calculator },
+  { type: 'odd_one_out', name: 'Odd One Out', domain: 'Visual', description: 'Find the shape that is slightly different from the rest', difficulty: 1, icon: Hexagon },
+  { type: 'shape_match', name: 'Shape Match', domain: 'Recognition', description: 'Match the exact identical shapes quickly', difficulty: 1, icon: Shapes },
 ]
-
-// Note: For brevity in this hackathon version, keeping the game logic unchanged, just restyling the containers.
-// ... (The individual game components stay largely the same structurally, but colors changed if needed).
-
-/* ============ INDIVIDUAL GAME COMPONENTS ============ */
-function PlaceholderGame({ name, onComplete }: { name: string, onComplete: (s: number, a: number) => void }) {
-  // Simple placeholder that just passes after 2 seconds for demo
-  useEffect(() => {
-    const t = setTimeout(() => onComplete(100, 85), 2000)
-    return () => clearTimeout(t)
-  }, [onComplete])
-  return (
-    <div className="py-12 text-center">
-      <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-      <p className="text-text-primary font-medium">Playing {name} (Demo Auto-play)...</p>
-    </div>
-  )
-}
-
 
 export default function Cognitive() {
   const [selectedGame, setSelectedGame] = useState<GameConfig | null>(null)
@@ -81,15 +78,32 @@ export default function Cognitive() {
     return <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${map[d].cls}`}>{map[d].label}</span>
   }
 
+  const renderActiveGame = () => {
+    if (!selectedGame) return null
+    switch (selectedGame.type) {
+      case 'sequence_recall': return <SequenceRecall onComplete={handleComplete} />
+      case 'pattern_matrix': return <PatternMatrix onComplete={handleComplete} />
+      case 'delayed_word_recall': return <WordRecall onComplete={handleComplete} />
+      case 'number_span': return <NumberSpan onComplete={handleComplete} />
+      case 'go_no_go': return <GoNoGo onComplete={handleComplete} />
+      case 'spatial_memory_grid': return <SpatialMemory onComplete={handleComplete} />
+      case 'color_word_stroop': return <ColorStroop onComplete={handleComplete} />
+      case 'math_challenge': return <MathChallenge onComplete={handleComplete} />
+      case 'odd_one_out': return <OddOneOut onComplete={handleComplete} />
+      case 'shape_match': return <ShapeMatch onComplete={handleComplete} />
+      default: return <div className="p-8 text-center">Game not found</div>
+    }
+  }
+
   // Active Game View
   if (selectedGame) {
     return (
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-6 max-w-4xl mx-auto pb-12">
         <button onClick={resetGame} className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors">
           <ArrowLeft className="w-5 h-5" /> Back to Games
         </button>
 
-        <div className="glass-card p-8 bg-white max-w-2xl mx-auto">
+        <div className="glass-card p-4 sm:p-8 bg-white max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-8 pb-6 border-b border-border">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-2xl bg-pastel-lilac">
@@ -106,7 +120,7 @@ export default function Cognitive() {
           <AnimatePresence mode="wait">
             {gameComplete ? (
               <motion.div key="complete" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-8 py-4">
-                <div className="w-24 h-24 rounded-full bg-pastel-lemon flex items-center justify-center mx-auto shadow-sm">
+                <div className="w-24 h-24 rounded-full bg-pastel-lemon flex items-center justify-center mx-auto shadow-sm tracking-widest">
                   <Trophy className="w-12 h-12 text-warn" />
                 </div>
                 <h3 className="text-2xl font-bold text-text-primary">Game Complete!</h3>
@@ -115,17 +129,17 @@ export default function Cognitive() {
                   <div className="p-4 rounded-2xl bg-page">
                     <Target className="w-5 h-5 text-accent mx-auto mb-2" />
                     <p className="text-2xl font-bold text-accent">{finalScore}</p>
-                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold">Score</p>
+                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">Score</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-page">
                     <Zap className="w-5 h-5 text-warn mx-auto mb-2" />
                     <p className="text-2xl font-bold text-warn">{finalAccuracy}%</p>
-                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold">Accuracy</p>
+                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">Accuracy</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-page">
                     <Clock className="w-5 h-5 text-purple-500 mx-auto mb-2" />
                     <p className="text-2xl font-bold text-purple-500">+{Math.round(finalScore / 2)}</p>
-                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold">XP</p>
+                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">XP</p>
                   </div>
                 </div>
 
@@ -138,7 +152,7 @@ export default function Cognitive() {
               </motion.div>
             ) : (
               <motion.div key="playing" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <PlaceholderGame name={selectedGame.name} onComplete={handleComplete} />
+                {renderActiveGame()}
               </motion.div>
             )}
           </AnimatePresence>
@@ -149,13 +163,13 @@ export default function Cognitive() {
 
   // Games Hub
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
       <div>
-        <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-          <Brain className="w-7 h-7 text-purple-500" />
+        <h1 className="text-3xl font-bold text-text-primary flex items-center gap-2">
+          <Brain className="w-8 h-8 text-purple-500" />
           Cognitive Training
         </h1>
-        <p className="text-text-muted mt-1 text-sm">Challenge your brain with 7 scientifically-designed games</p>
+        <p className="text-text-muted mt-2 text-base max-w-2xl">Challenge your brain with 10 scientifically-designed games tailored to improve memory, visual recognition, and cognitive speed.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -164,8 +178,9 @@ export default function Cognitive() {
             key={g.type}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08 }}
-            className="glass-card p-6 bg-white group hover:border-purple-200"
+            transition={{ delay: i * 0.05 }}
+            className="glass-card p-6 bg-white group hover:border-purple-200 hover:shadow-card cursor-pointer flex flex-col h-full"
+            onClick={() => { setSelectedGame(g); setGameComplete(false) }}
           >
             <div className="flex items-start justify-between mb-4">
               <div className="p-3 rounded-2xl bg-pastel-lilac group-hover:scale-105 transition-transform">
@@ -175,14 +190,13 @@ export default function Cognitive() {
             </div>
 
             <h3 className="text-lg font-bold text-text-primary mb-1">{g.name}</h3>
-            <p className="text-xs font-semibold text-purple-500 mb-2 uppercase tracking-wider">{g.domain}</p>
-            <p className="text-sm text-text-secondary mb-6 line-clamp-2 min-h-[40px]">{g.description}</p>
+            <p className="text-xs font-semibold text-purple-500 mb-3 uppercase tracking-wider">{g.domain}</p>
+            <p className="text-sm text-text-secondary flex-1 line-clamp-3 mb-6">{g.description}</p>
 
             <button
-              onClick={() => { setSelectedGame(g); setGameComplete(false) }}
-              className="w-full py-2.5 rounded-xl bg-page text-text-primary font-medium flex items-center justify-center gap-2 group-hover:bg-purple-500 group-hover:text-white transition-colors shadow-sm"
+              className="w-full py-2.5 rounded-xl bg-page text-text-primary font-bold flex items-center justify-center gap-2 group-hover:bg-purple-500 group-hover:text-white transition-colors border border-border group-hover:border-purple-500"
             >
-              <Play className="w-4 h-4" /> Start Game
+              <Play className="w-4 h-4 fill-current" /> Play Now
             </button>
           </motion.div>
         ))}

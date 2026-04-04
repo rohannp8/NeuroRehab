@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { BotMessageSquare, Send, User, Sparkles } from 'lucide-react'
+import { BotMessageSquare, Send, User, Sparkles, Mic } from 'lucide-react'
 
 interface Message {
   id: string
@@ -29,8 +29,46 @@ export default function Chatbot() {
     scrollToBottom()
   }, [messages])
 
-  const handleSend = () => {
-    if (!input.trim()) return
+  const [isLoading, setIsLoading] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+
+  const toggleListen = () => {
+    if (isListening) return;
+    
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Your browser does not support voice input.");
+      return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => prev + (prev ? ' ' : '') + transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  }
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return
 
     const newMsg: Message = {
       id: Date.now().toString(),
@@ -39,19 +77,46 @@ export default function Chatbot() {
       timestamp: new Date()
     }
 
-    setMessages(prev => [...prev, newMsg])
+    const currentMessages = [...messages, newMsg]
+    setMessages(currentMessages)
     setInput('')
+    setIsLoading(true)
 
-    // Mock bot reply
-    setTimeout(() => {
+    try {
+      const apiMessages = currentMessages.map(m => ({
+        role: m.sender === 'bot' ? 'assistant' : 'user',
+        content: m.text
+      }))
+
+      const response = await fetch('http://localhost:8000/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ messages: apiMessages })
+      })
+      
+      const data = await response.json()
+      
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I'm a demo AI for now! Once the backend is connected, I'll be able to give you specific medical and therapeutic advice based on your profile.",
+        text: data.response || "Sorry, I couldn't understand that.",
         sender: 'bot',
         timestamp: new Date()
       }
       setMessages(prev => [...prev, botMsg])
-    }, 1000)
+    } catch (error) {
+      console.error("Chat error:", error)
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "Sorry, I am having trouble connecting to the server.",
+        sender: 'bot',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMsg])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -106,23 +171,53 @@ export default function Chatbot() {
               </div>
             </div>
           ))}
+
+          {isLoading && (
+            <div className="flex gap-4 max-w-[85%]">
+              <div className="flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-accent animate-pulse" />
+                  </div>
+              </div>
+              <div className="p-4 rounded-2xl bg-page border border-border rounded-tl-sm text-text-primary flex items-center h-12">
+                <div className="flex gap-1.5 items-center justify-center">
+                  <div className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                  <div className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input area */}
         <div className="p-4 bg-page border-t border-border">
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggleListen}
+              disabled={isLoading || isListening}
+              className={`p-3 rounded-xl transition-colors ${
+                isListening 
+                  ? 'bg-danger text-white animate-pulse' 
+                  : 'bg-card border border-border text-text-muted hover:text-accent hover:border-accent/50'
+              }`}
+              title="Voice Input"
+            >
+              <Mic className="w-5 h-5" />
+            </button>
             <input 
               type="text" 
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask me anything..."
-              className="flex-1 bg-card border border-border rounded-xl px-4 py-3 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
+              placeholder={isListening ? "Listening..." : isLoading ? "Bot is typing..." : "Ask me anything..."}
+              disabled={isLoading}
+              className="flex-1 bg-card border border-border rounded-xl px-4 py-3 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors disabled:opacity-50"
             />
             <button 
               onClick={handleSend}
-              disabled={!input.trim()}
+              disabled={!input.trim() || isLoading}
               className="p-3 rounded-xl bg-accent text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent-dark transition-colors"
             >
               <Send className="w-5 h-5" />

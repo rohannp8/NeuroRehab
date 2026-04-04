@@ -126,7 +126,7 @@ export default function Layout() {
           </button>
 
           <div className="hidden lg:block">
-            <p className="text-sm text-text-muted">Welcome back 👋</p>
+            {/* Empty space for header as requested */}
           </div>
 
           <div className="flex items-center gap-3">

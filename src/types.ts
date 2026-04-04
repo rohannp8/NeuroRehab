@@ -42,6 +42,7 @@ export interface PoseFrame {
 export type GameType =
   | 'sequence_recall' | 'pattern_matrix' | 'delayed_word_recall'
   | 'number_span' | 'go_no_go' | 'spatial_memory_grid' | 'color_word_stroop'
+  | 'math_challenge' | 'odd_one_out' | 'shape_match'
 
 export interface LeaderboardEntry {
   rank: number
