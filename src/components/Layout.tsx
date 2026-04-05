@@ -3,6 +3,7 @@ import { useAuthStore } from '../store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { useI18n, getLanguageOptions, type LanguageCode } from '../i18n'
 import {
   LayoutDashboard,
   Activity,
@@ -19,22 +20,25 @@ import {
 } from 'lucide-react'
 import { mockNotifications } from '../mockData'
 
-const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/rehab', icon: Activity, label: 'Rehabilitation' },
-  { to: '/meditation', icon: Leaf, label: 'Meditation' },
-  { to: '/physical', icon: Activity, label: 'Physical Session' },
-  { to: '/cognitive', icon: Brain, label: 'Cognitive Session' },
-  { to: '/chatbot', icon: BotMessageSquare, label: 'NeuroAI Assistant' },
-  { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
-]
-
 export default function Layout() {
   const { user, setUser } = useAuthStore()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showNotifs, setShowNotifs] = useState(false)
   const isOnline = useOnlineStatus()
+  const { language, setLanguage, t } = useI18n()
+
+  const navItems = [
+    { to: '/dashboard', icon: LayoutDashboard, label: t('layout.dashboard') },
+    { to: '/rehab', icon: Activity, label: t('layout.rehabilitation') },
+    { to: '/meditation', icon: Leaf, label: t('layout.meditation') },
+    { to: '/physical', icon: Activity, label: t('layout.physicalSession') },
+    { to: '/cognitive', icon: Brain, label: t('layout.cognitiveSession') },
+    { to: '/chatbot', icon: BotMessageSquare, label: t('layout.assistant') },
+    { to: '/leaderboard', icon: Trophy, label: t('layout.leaderboard') },
+  ]
+
+  const languageOptions = getLanguageOptions(language)
 
   const handleLogout = () => {
     setUser(null)
@@ -69,7 +73,7 @@ export default function Layout() {
           </div>
           <div>
             <h1 className="text-base font-bold text-text-primary leading-tight">NeuroRehab</h1>
-            <p className="text-[10px] text-accent font-medium tracking-wider uppercase">AI Platform</p>
+            <p className="text-[10px] text-accent font-medium tracking-wider uppercase">{t('layout.appLabel')}</p>
           </div>
         </div>
 
@@ -112,7 +116,7 @@ export default function Layout() {
             className="nav-link w-full text-danger hover:text-danger-dark hover:bg-danger-light"
           >
             <LogOut className="w-5 h-5" />
-            <span className="text-sm font-medium">Sign Out</span>
+            <span className="text-sm font-medium">{t('common.signOut')}</span>
           </button>
         </div>
       </aside>
@@ -137,9 +141,19 @@ export default function Layout() {
             {!isOnline && (
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warn/10 border border-warn/30 text-warn-dark text-xs font-semibold">
                 <WifiOff className="w-3.5 h-3.5" />
-                Offline Mode
+                {t('layout.offlineMode')}
               </div>
             )}
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+              className="input-field w-auto py-2 px-3 text-sm"
+              aria-label={t('common.selectLanguage')}
+            >
+              {languageOptions.map((option) => (
+                <option key={option.code} value={option.code}>{option.label}</option>
+              ))}
+            </select>
             {/* Notifications */}
             <div className="relative">
               <button
@@ -159,7 +173,7 @@ export default function Layout() {
                     className="absolute right-0 mt-2 w-80 bg-white border border-border rounded-2xl shadow-card z-50 overflow-hidden"
                   >
                     <div className="px-4 py-3 border-b border-border">
-                      <h3 className="text-sm font-semibold text-text-primary">Notifications</h3>
+                      <h3 className="text-sm font-semibold text-text-primary">{t('layout.notifications')}</h3>
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {mockNotifications.map((n) => (

@@ -4,10 +4,10 @@ import type { GameType } from '../types'
 import {
   Brain, Play, ArrowLeft, Trophy, Target, Clock, Zap,
   Grid3X3, Type, Hash, CircleDot, Palette, RotateCcw,
-  Calculator, Hexagon, Shapes
+  Calculator, Hexagon, Shapes,
 } from 'lucide-react'
+import { translateGameCopy, useI18n } from '../i18n'
 
-// Import all 10 Games
 import SequenceRecall from '../components/games/SequenceRecall'
 import PatternMatrix from '../components/games/PatternMatrix'
 import WordRecall from '../components/games/WordRecall'
@@ -42,6 +42,7 @@ const games: GameConfig[] = [
 ]
 
 export default function Cognitive() {
+  const { language, t } = useI18n()
   const [selectedGame, setSelectedGame] = useState<GameConfig | null>(null)
   const [gameComplete, setGameComplete] = useState(false)
   const [finalScore, setFinalScore] = useState(0)
@@ -71,9 +72,9 @@ export default function Cognitive() {
 
   const diffBadge = (d: 1 | 2 | 3) => {
     const map = {
-      1: { label: 'Easy', cls: 'bg-success-light text-success-dark' },
-      2: { label: 'Medium', cls: 'bg-warn-light text-warn-dark' },
-      3: { label: 'Hard', cls: 'bg-danger-light text-danger-dark' },
+      1: { label: t('common.easy'), cls: 'bg-success-light text-success-dark' },
+      2: { label: t('common.medium'), cls: 'bg-warn-light text-warn-dark' },
+      3: { label: t('common.hard'), cls: 'bg-danger-light text-danger-dark' },
     }
     return <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${map[d].cls}`}>{map[d].label}</span>
   }
@@ -91,16 +92,17 @@ export default function Cognitive() {
       case 'math_challenge': return <MathChallenge onComplete={handleComplete} />
       case 'odd_one_out': return <OddOneOut onComplete={handleComplete} />
       case 'shape_match': return <ShapeMatch onComplete={handleComplete} />
-      default: return <div className="p-8 text-center">Game not found</div>
+      default: return <div className="p-8 text-center">{t('cognitive.gameNotFound')}</div>
     }
   }
 
-  // Active Game View
   if (selectedGame) {
+    const translatedSelectedGame = translateGameCopy(selectedGame.type, language)
+
     return (
       <div className="space-y-6 max-w-4xl mx-auto pb-12">
         <button onClick={resetGame} className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors">
-          <ArrowLeft className="w-5 h-5" /> Back to Games
+          <ArrowLeft className="w-5 h-5" /> {t('cognitive.backToGames')}
         </button>
 
         <div className="glass-card p-4 sm:p-8 bg-white max-w-2xl mx-auto">
@@ -110,8 +112,8 @@ export default function Cognitive() {
                 <selectedGame.icon className="w-7 h-7 text-purple-500" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-text-primary">{selectedGame.name}</h2>
-                <p className="text-sm text-text-muted font-medium">{selectedGame.domain}</p>
+                <h2 className="text-xl font-bold text-text-primary">{translatedSelectedGame.name}</h2>
+                <p className="text-sm text-text-muted font-medium">{translatedSelectedGame.domain}</p>
               </div>
             </div>
             {diffBadge(selectedGame.difficulty)}
@@ -123,31 +125,31 @@ export default function Cognitive() {
                 <div className="w-24 h-24 rounded-full bg-pastel-lemon flex items-center justify-center mx-auto shadow-sm tracking-widest">
                   <Trophy className="w-12 h-12 text-warn" />
                 </div>
-                <h3 className="text-2xl font-bold text-text-primary">Game Complete!</h3>
+                <h3 className="text-2xl font-bold text-text-primary">{t('cognitive.gameComplete')}</h3>
 
                 <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
                   <div className="p-4 rounded-2xl bg-page">
                     <Target className="w-5 h-5 text-accent mx-auto mb-2" />
                     <p className="text-2xl font-bold text-accent">{finalScore}</p>
-                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">Score</p>
+                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">{t('cognitive.score')}</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-page">
                     <Zap className="w-5 h-5 text-warn mx-auto mb-2" />
                     <p className="text-2xl font-bold text-warn">{finalAccuracy}%</p>
-                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">Accuracy</p>
+                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">{t('cognitive.accuracy')}</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-page">
                     <Clock className="w-5 h-5 text-purple-500 mx-auto mb-2" />
                     <p className="text-2xl font-bold text-purple-500">+{Math.round(finalScore / 2)}</p>
-                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">XP</p>
+                    <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-1">{t('cognitive.xp')}</p>
                   </div>
                 </div>
 
                 <div className="flex justify-center gap-4 pt-4">
                   <button onClick={playAgain} className="btn-secondary flex items-center gap-2 px-8">
-                    <RotateCcw className="w-4 h-4" /> Try Again
+                    <RotateCcw className="w-4 h-4" /> {t('cognitive.tryAgain')}
                   </button>
-                  <button onClick={resetGame} className="btn-primary px-8">All Games</button>
+                  <button onClick={resetGame} className="btn-primary px-8">{t('cognitive.allGames')}</button>
                 </div>
               </motion.div>
             ) : (
@@ -161,45 +163,45 @@ export default function Cognitive() {
     )
   }
 
-  // Games Hub
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       <div>
         <h1 className="text-3xl font-bold text-text-primary flex items-center gap-2">
           <Brain className="w-8 h-8 text-purple-500" />
-          Cognitive Training
+          {t('cognitive.title')}
         </h1>
-        <p className="text-text-muted mt-2 text-base max-w-2xl">Challenge your brain with 10 scientifically-designed games tailored to improve memory, visual recognition, and cognitive speed.</p>
+        <p className="text-text-muted mt-2 text-base max-w-2xl">{t('cognitive.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {games.map((g, i) => (
-          <motion.div
-            key={g.type}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="glass-card p-6 bg-white group hover:border-purple-200 hover:shadow-card cursor-pointer flex flex-col h-full"
-            onClick={() => { setSelectedGame(g); setGameComplete(false) }}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 rounded-2xl bg-pastel-lilac group-hover:scale-105 transition-transform">
-                <g.icon className="w-6 h-6 text-purple-500" />
-              </div>
-              {diffBadge(g.difficulty)}
-            </div>
-
-            <h3 className="text-lg font-bold text-text-primary mb-1">{g.name}</h3>
-            <p className="text-xs font-semibold text-purple-500 mb-3 uppercase tracking-wider">{g.domain}</p>
-            <p className="text-sm text-text-secondary flex-1 line-clamp-3 mb-6">{g.description}</p>
-
-            <button
-              className="w-full py-2.5 rounded-xl bg-page text-text-primary font-bold flex items-center justify-center gap-2 group-hover:bg-purple-500 group-hover:text-white transition-colors border border-border group-hover:border-purple-500"
+        {games.map((g, i) => {
+          const translated = translateGameCopy(g.type, language)
+          return (
+            <motion.div
+              key={g.type}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="glass-card p-6 bg-white group hover:border-purple-200 hover:shadow-card cursor-pointer flex flex-col h-full"
+              onClick={() => { setSelectedGame(g); setGameComplete(false) }}
             >
-              <Play className="w-4 h-4 fill-current" /> Play Now
-            </button>
-          </motion.div>
-        ))}
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 rounded-2xl bg-pastel-lilac group-hover:scale-105 transition-transform">
+                  <g.icon className="w-6 h-6 text-purple-500" />
+                </div>
+                {diffBadge(g.difficulty)}
+              </div>
+
+              <h3 className="text-lg font-bold text-text-primary mb-1">{translated.name}</h3>
+              <p className="text-xs font-semibold text-purple-500 mb-3 uppercase tracking-wider">{translated.domain}</p>
+              <p className="text-sm text-text-secondary flex-1 line-clamp-3 mb-6">{translated.description}</p>
+
+              <button className="w-full py-2.5 rounded-xl bg-page text-text-primary font-bold flex items-center justify-center gap-2 group-hover:bg-purple-500 group-hover:text-white transition-colors border border-border group-hover:border-purple-500">
+                <Play className="w-4 h-4 fill-current" /> {t('cognitive.playNow')}
+              </button>
+            </motion.div>
+          )
+        })}
       </div>
     </div>
   )

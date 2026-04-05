@@ -2,6 +2,8 @@ import { useState } from 'react'
 
 export default function PatternMatrix({ onComplete }: { onComplete: (score: number, accuracy: number) => void }) {
   const [round, setRound] = useState(0)
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
+  const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
 
   // Simple hardcoded rounds for Pattern Matrix
   const rounds = [
@@ -13,15 +15,24 @@ export default function PatternMatrix({ onComplete }: { onComplete: (score: numb
   const startGame = () => setRound(1)
 
   const handleChoice = (choice: string) => {
-    if (choice === rounds[round - 1].answer) {
-      if (round === rounds.length) {
-        onComplete(100, 100)
+    if (selectedChoice) return
+    const isCorrect = choice === rounds[round - 1].answer
+    setSelectedChoice(choice)
+    setLastCorrect(isCorrect)
+
+    window.setTimeout(() => {
+      if (isCorrect) {
+        if (round === rounds.length) {
+          onComplete(100, 100)
+        } else {
+          setRound(r => r + 1)
+        }
       } else {
-        setRound(r => r + 1)
+        onComplete(round * 20, 50)
       }
-    } else {
-      onComplete(round * 20, 50)
-    }
+      setSelectedChoice(null)
+      setLastCorrect(null)
+    }, 280)
   }
 
   if (round === 0) {
@@ -48,7 +59,16 @@ export default function PatternMatrix({ onComplete }: { onComplete: (score: numb
 
       <div className="grid grid-cols-4 gap-4">
         {currentPattern.choices.map((c, i) => (
-          <button key={i} onClick={() => handleChoice(c)} className="w-16 h-16 text-3xl bg-card border border-border rounded-xl hover:bg-page transition-colors">
+          <button
+            key={i}
+            onClick={() => handleChoice(c)}
+            disabled={Boolean(selectedChoice)}
+            className={`w-16 h-16 text-3xl rounded-xl transition-colors border-2 ${
+              selectedChoice === c
+                ? lastCorrect ? 'bg-success/10 border-success text-success-dark' : 'bg-danger/10 border-danger text-danger-dark'
+                : 'bg-card border-border hover:bg-page'
+            }`}
+          >
             {c}
           </button>
         ))}

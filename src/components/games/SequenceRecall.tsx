@@ -11,6 +11,7 @@ export default function SequenceRecall({ onComplete }: { onComplete: (score: num
   const [userSequence, setUserSequence] = useState<number[]>([])
   const [isPlayingSequence, setIsPlayingSequence] = useState(false)
   const [activeCell, setActiveCell] = useState<number | null>(null)
+  const [clickedCell, setClickedCell] = useState<number | null>(null)
   const [round, setRound] = useState(0)
   const [gameOver, setGameOver] = useState(false)
 
@@ -43,6 +44,9 @@ export default function SequenceRecall({ onComplete }: { onComplete: (score: num
 
   const handleCellClick = (index: number) => {
     if (isPlayingSequence || gameOver) return
+
+    setClickedCell(index)
+    window.setTimeout(() => setClickedCell(null), 180)
 
     const newUserSeq = [...userSequence, index]
     setUserSequence(newUserSeq)
@@ -86,7 +90,11 @@ export default function SequenceRecall({ onComplete }: { onComplete: (score: num
             key={i}
             onClick={() => handleCellClick(i)}
             className={`rounded-xl cursor-pointer transition-all duration-200 border-2 ${
-              activeCell === i ? 'bg-accent border-accent scale-105 shadow-glow' : 'bg-page border-border hover:bg-page-hover'
+              activeCell === i
+                ? 'bg-accent border-accent scale-105 shadow-glow'
+                : clickedCell === i
+                  ? 'bg-accent-light border-accent scale-105'
+                  : 'bg-page border-border hover:bg-page-hover'
             }`}
           />
         ))}

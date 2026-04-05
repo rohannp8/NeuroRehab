@@ -7,6 +7,7 @@ export default function ShapeMatch({ onComplete }: { onComplete: (score: number,
   const [target, setTarget] = useState('')
   const [options, setOptions] = useState<string[]>([])
   const [correctCount, setCorrectCount] = useState(0)
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
 
   const startRound = (currentRound: number, currentScore: number) => {
     if (currentRound > 5) {
@@ -26,12 +27,18 @@ export default function ShapeMatch({ onComplete }: { onComplete: (score: number,
   }
 
   const handleChoice = (c: string) => {
+    if (selectedOption) return
+    setSelectedOption(c)
+
     let newScore = correctCount
     if (c === target) {
       newScore += 1
     }
     setCorrectCount(newScore)
-    startRound(round + 1, newScore)
+    window.setTimeout(() => {
+      setSelectedOption(null)
+      startRound(round + 1, newScore)
+    }, 280)
   }
 
   if (round === 0) {
@@ -56,7 +63,16 @@ export default function ShapeMatch({ onComplete }: { onComplete: (score: number,
           <button 
             key={i}
             onClick={() => handleChoice(opt)}
-            className="h-20 text-4xl flex items-center justify-center bg-card border border-border rounded-xl hover:bg-page transition-colors"
+            disabled={Boolean(selectedOption)}
+            className={`h-20 text-4xl flex items-center justify-center rounded-xl border-2 transition-colors ${
+              selectedOption === opt
+                ? opt === target
+                  ? 'bg-success/10 border-success'
+                  : 'bg-danger/10 border-danger'
+                : selectedOption !== null && opt === target
+                  ? 'bg-success/10 border-success'
+                  : 'bg-card border-border hover:bg-page'
+            }`}
           >
             {opt}
           </button>

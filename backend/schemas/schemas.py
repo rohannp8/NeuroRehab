@@ -18,6 +18,9 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     user_id: Optional[str] = None
+    exercise_history: Optional[list] = None
+    user_context: Optional[dict] = None
+    lang_code: Optional[str] = None
     
 class ChatResponse(BaseModel):
     response: str

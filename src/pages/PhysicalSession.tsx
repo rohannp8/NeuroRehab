@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { mockExercises } from '../mockData'
 import type { Exercise } from '../types'
 import WebcamFeed from '../components/WebcamFeed'
 import OfflineExercisePlayer from '../components/OfflineExercisePlayer'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { useI18n } from '../i18n'
 import {
   Dumbbell, Play, Square, Clock, Zap, Award, X, ArrowLeft, WifiOff,
 } from 'lucide-react'
 
 export default function PhysicalSession() {
+  const { language, t } = useI18n()
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [sessionActive, setSessionActive] = useState(false)
   const [sessionId] = useState('session-demo-001')
@@ -19,6 +21,8 @@ export default function PhysicalSession() {
   const [showSummary, setShowSummary] = useState(false)
   const [quality] = useState(85)
   const isOnline = useOnlineStatus()
+  const autoCompleteRef = useRef(false)
+  const autoCompleteTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!sessionActive) return
@@ -42,12 +46,38 @@ export default function PhysicalSession() {
     setSessionActive(true)
     setRepCount(0)
     setTimer(0)
+    autoCompleteRef.current = false
   }
 
-  const endExerciseSession = () => {
+  const endExerciseSession = useCallback(() => {
     setSessionActive(false)
     setShowSummary(true)
-  }
+    autoCompleteRef.current = false
+  }, [])
+
+  useEffect(() => {
+    if (!sessionActive || !selectedExercise) {
+      autoCompleteRef.current = false
+      if (autoCompleteTimeoutRef.current !== null) {
+        window.clearTimeout(autoCompleteTimeoutRef.current)
+        autoCompleteTimeoutRef.current = null
+      }
+      return
+    }
+
+    if (autoCompleteRef.current) return
+
+    if (repCount >= selectedExercise.default_reps && selectedExercise.default_reps > 0) {
+      autoCompleteRef.current = true
+      autoCompleteTimeoutRef.current = window.setTimeout(() => endExerciseSession(), 0)
+    }
+    return () => {
+      if (autoCompleteTimeoutRef.current !== null) {
+        window.clearTimeout(autoCompleteTimeoutRef.current)
+        autoCompleteTimeoutRef.current = null
+      }
+    }
+  }, [endExerciseSession, repCount, selectedExercise, sessionActive])
 
   const closeSummary = () => {
     setShowSummary(false)
@@ -90,11 +120,11 @@ export default function PhysicalSession() {
           <div className="flex items-center gap-3">
             {!isOnline && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-warn/10 border border-warn/30 text-warn-dark text-xs font-semibold">
-                <WifiOff className="w-3.5 h-3.5" /> Reference Mode
+                <WifiOff className="w-3.5 h-3.5" /> {t('physical.reference')}
               </div>
             )}
             <button onClick={endExerciseSession} className="btn-secondary flex items-center gap-2 text-danger border-danger/30 hover:bg-danger-light">
-              <Square className="w-4 h-4" /> End Session
+              <Square className="w-4 h-4" /> {t('physical.endSession')}
             </button>
           </div>
         </div>
@@ -104,15 +134,15 @@ export default function PhysicalSession() {
             {!isOnline ? (
               <OfflineExercisePlayer exercise={selectedExercise} onRepCounted={handleRepCounted} />
             ) : (
-              <WebcamFeed sessionId={sessionId} exercise={selectedExercise} onRepCounted={handleRepCounted} onFeedback={handleFeedback} />
+              <WebcamFeed sessionId={sessionId} exercise={selectedExercise} langCode={language} onRepCounted={handleRepCounted} onFeedback={handleFeedback} />
             )}
           </div>
 
           <div className="space-y-4">
             <div className="glass-card p-6 text-center">
-              <p className="text-text-muted text-sm mb-2">Reps Completed</p>
+              <p className="text-text-muted text-sm mb-2">{t('physical.repsCompleted')}</p>
               <p className="text-5xl font-bold text-accent">{repCount}</p>
-              <p className="text-text-light text-sm mt-1">/ {selectedExercise.default_reps} target</p>
+              <p className="text-text-light text-sm mt-1">/ {selectedExercise.default_reps} {t('physical.target')}</p>
               <div className="w-full h-2.5 rounded-full bg-page mt-4">
                 <div className="h-full rounded-full bg-gradient-to-r from-accent to-accent-dark transition-all duration-500" style={{ width: `${Math.min((repCount / selectedExercise.default_reps) * 100, 100)}%` }} />
               </div>
@@ -121,22 +151,22 @@ export default function PhysicalSession() {
             <div className="glass-card p-6 text-center">
               <Clock className="w-6 h-6 text-text-muted mx-auto mb-2" />
               <p className="text-3xl font-bold text-text-primary font-mono">{formatTime(timer)}</p>
-              <p className="text-text-light text-sm">Session Duration</p>
+              <p className="text-text-light text-sm">{t('physical.sessionDuration')}</p>
             </div>
 
             <div className="glass-card p-6 space-y-3">
-              <h4 className="font-semibold text-text-primary">Exercise Details</h4>
+              <h4 className="font-semibold text-text-primary">{t('physical.exerciseDetails')}</h4>
               <p className="text-sm text-text-muted">{selectedExercise.description}</p>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-light">Target ROM</span>
+                <span className="text-text-light">{t('physical.targetRom')}</span>
                 <span className="text-text-primary font-medium">{selectedExercise.target_rom_min}°–{selectedExercise.target_rom_max}°</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-light">Joints</span>
+                <span className="text-text-light">{t('physical.joints')}</span>
                 <span className="text-text-primary font-medium capitalize">{selectedExercise.primary_joints.join(', ')}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-light">Difficulty</span>
+                <span className="text-text-light">{t('physical.difficulty')}</span>
                 {difficultyBadge(selectedExercise.difficulty)}
               </div>
             </div>
@@ -151,9 +181,9 @@ export default function PhysicalSession() {
       <div>
         <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
           <Dumbbell className="w-7 h-7 text-accent" />
-          Physical Session
+          {t('physical.title')}
         </h1>
-        <p className="text-text-muted mt-1 text-sm">Choose an exercise and start your AI-guided session</p>
+        <p className="text-text-muted mt-1 text-sm">{t('physical.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -180,7 +210,7 @@ export default function PhysicalSession() {
                 <span>{ex.target_rom_max}° ROM</span>
               </div>
               <div className="flex items-center gap-1 text-accent text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                <Play className="w-4 h-4" /> Start
+                  <Play className="w-4 h-4" /> {t('common.start')}
               </div>
             </div>
           </motion.div>
@@ -210,25 +240,25 @@ export default function PhysicalSession() {
               <div className="w-20 h-20 rounded-full bg-accent-light flex items-center justify-center mx-auto">
                 <Award className="w-10 h-10 text-accent" />
               </div>
-              <h2 className="text-2xl font-bold text-text-primary">Session Complete!</h2>
+              <h2 className="text-2xl font-bold text-text-primary">{t('physical.complete')}</h2>
               <div className="grid grid-cols-3 gap-4">
                 <div className="p-3 rounded-xl bg-page">
                   <p className="text-2xl font-bold text-accent">{repCount}</p>
-                  <p className="text-xs text-text-light">Reps</p>
+                  <p className="text-xs text-text-light">{t('physical.reps')}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-page">
                   <p className="text-2xl font-bold text-warn">{formatTime(timer)}</p>
-                  <p className="text-xs text-text-light">Duration</p>
+                  <p className="text-xs text-text-light">{t('physical.duration')}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-page">
                   <p className="text-2xl font-bold text-info">{quality}%</p>
-                  <p className="text-xs text-text-light">Quality</p>
+                  <p className="text-xs text-text-light">{t('physical.quality')}</p>
                 </div>
               </div>
               <div className="p-4 rounded-2xl bg-accent-light border border-accent-200">
                 <p className="text-accent-dark font-bold text-lg">+120 XP earned! 🎉</p>
               </div>
-              <button onClick={closeSummary} className="btn-primary w-full">Done</button>
+              <button onClick={closeSummary} className="btn-primary w-full">{t('common.done')}</button>
             </motion.div>
           </motion.div>
         )}

@@ -4,6 +4,7 @@ import {
   Leaf, Play, Pause, RotateCcw, Volume2, VolumeX,
   CloudRain, Waves, Wind, Music, Bird, Moon, Upload,
 } from 'lucide-react'
+import { useI18n, translateSoundName } from '../i18n'
 
 interface SoundOption {
   id: string
@@ -52,6 +53,7 @@ const durations = [
 ]
 
 export default function Meditation() {
+  const { language, t } = useI18n()
   const [selectedSound, setSelectedSound] = useState<SoundOption>(sounds[0])
   const [selectedDuration, setSelectedDuration] = useState(10)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -221,9 +223,9 @@ export default function Meditation() {
       <div>
         <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
           <Leaf className="w-7 h-7 text-success" />
-          Meditation & Relaxation
+          {t('meditation.title')}
         </h1>
-        <p className="text-text-muted mt-1 text-sm">Find your calm with guided soundscapes</p>
+        <p className="text-text-muted mt-1 text-sm">{t('meditation.subtitle')}</p>
       </div>
 
       {/* Timer Card */}
@@ -252,7 +254,7 @@ export default function Meditation() {
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-5xl font-bold text-text-primary font-mono">{formatTime(timeLeft)}</span>
               <span className="text-sm text-text-muted mt-1">
-                {isPlaying ? 'Breathing...' : sessionComplete ? 'Session Complete 🎉' : 'Ready'}
+                {isPlaying ? t('meditation.breathing') : sessionComplete ? t('meditation.complete') : t('meditation.ready')}
               </span>
             </div>
           </div>
@@ -277,7 +279,7 @@ export default function Meditation() {
 
       {/* Duration selector */}
       <div>
-        <h3 className="text-sm font-semibold text-text-secondary mb-3">Duration</h3>
+        <h3 className="text-sm font-semibold text-text-secondary mb-3">{t('physical.duration')}</h3>
         <div className="flex gap-3">
           {durations.map((d) => (
             <button
@@ -315,7 +317,7 @@ export default function Meditation() {
                 <div className={`p-2 rounded-xl ${s.bgColor}`}>
                   <Icon className={`w-5 h-5 ${s.color}`} />
                 </div>
-                <span className="text-sm font-medium text-text-primary">{s.name}</span>
+                <span className="text-sm font-medium text-text-primary">{translateSoundName(s.id, language)}</span>
               </button>
             )
           })}
@@ -333,7 +335,7 @@ export default function Meditation() {
               <Upload className="w-5 h-5 text-accent" />
             </div>
             <span className="text-sm font-medium text-text-primary">
-               {selectedSound.id === 'custom' ? selectedSound.name : 'Upload Sound'}
+              {selectedSound.id === 'custom' ? selectedSound.name : 'Upload Sound'}
             </span>
             <input 
               type="file" 
@@ -366,12 +368,12 @@ export default function Meditation() {
               <div className="w-20 h-20 rounded-full bg-success-light flex items-center justify-center mx-auto">
                 <Leaf className="w-10 h-10 text-success" />
               </div>
-              <h2 className="text-2xl font-bold text-text-primary">Session Complete!</h2>
-              <p className="text-text-muted">You meditated for {selectedDuration} minutes. Great job taking care of your mind! 🧘</p>
+              <h2 className="text-2xl font-bold text-text-primary">{t('meditation.complete')}</h2>
+              <p className="text-text-muted">{language === 'en' ? `You meditated for ${selectedDuration} minutes. Great job taking care of your mind! 🧘` : language === 'hi' ? `आपने ${selectedDuration} मिनट ध्यान किया। अपने मन का ख्याल रखने के लिए बहुत अच्छा! 🧘` : `तुम्ही ${selectedDuration} मिनिटे ध्यान केले. मनाची काळजी घेतल्याबद्दल छान काम! 🧘`}</p>
               <div className="p-4 rounded-2xl bg-success-light">
                 <p className="text-success-dark font-bold text-lg">+{selectedDuration * 5} XP earned! 🎉</p>
               </div>
-              <button onClick={reset} className="btn-primary w-full">Done</button>
+              <button onClick={reset} className="btn-primary w-full">{t('common.done')}</button>
             </motion.div>
           </motion.div>
         )}

@@ -16,6 +16,7 @@ export default function MathChallenge({ onComplete }: { onComplete: (score: numb
   const [answer, setAnswer] = useState(0)
   const [choices, setChoices] = useState<number[]>([])
   const [correctCount, setCorrectCount] = useState(0)
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
 
   const startRound = (currentRound: number, currentScore: number) => {
     if (currentRound > 5) {
@@ -54,12 +55,18 @@ export default function MathChallenge({ onComplete }: { onComplete: (score: numb
   }
 
   const handleChoice = (val: number) => {
+    if (selectedAnswer !== null) return
+    setSelectedAnswer(val)
+
     let newScore = correctCount
     if (val === answer) {
       newScore += 1
     }
     setCorrectCount(newScore)
-    startRound(round + 1, newScore)
+    window.setTimeout(() => {
+      setSelectedAnswer(null)
+      startRound(round + 1, newScore)
+    }, 280)
   }
 
   if (round === 0) {
@@ -84,7 +91,16 @@ export default function MathChallenge({ onComplete }: { onComplete: (score: numb
           <button 
             key={i}
             onClick={() => handleChoice(c)}
-            className="py-4 rounded-xl border border-border bg-card text-text-primary font-bold text-2xl hover:bg-page transition-colors"
+            disabled={selectedAnswer !== null}
+            className={`py-4 rounded-xl border-2 font-bold text-2xl transition-colors ${
+              selectedAnswer === c
+                ? c === answer
+                  ? 'bg-success/10 border-success text-success-dark'
+                  : 'bg-danger/10 border-danger text-danger-dark'
+                : selectedAnswer !== null && c === answer
+                  ? 'bg-success/10 border-success text-success-dark'
+                  : 'bg-card border-border text-text-primary hover:bg-page'
+            }`}
           >
             {c}
           </button>

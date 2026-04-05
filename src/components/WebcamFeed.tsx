@@ -31,12 +31,13 @@ const FEEDBACK_COLORS: Record<string, string> = {
 interface WebcamFeedProps {
   sessionId: string
   exercise: Exercise
+  langCode?: string
   onPoseFrame?: (result: InferenceResult) => void
   onRepCounted?: (count: number) => void
   onFeedback?: (message: string) => void
 }
 
-export default function WebcamFeed({ sessionId, exercise, onPoseFrame, onRepCounted, onFeedback }: WebcamFeedProps) {
+export default function WebcamFeed({ sessionId, exercise, langCode = 'en', onPoseFrame, onRepCounted, onFeedback }: WebcamFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -240,13 +241,13 @@ export default function WebcamFeed({ sessionId, exercise, onPoseFrame, onRepCoun
         target_rom_min: exercise.target_rom_min,
         target_rom_max: exercise.target_rom_max,
         target_reps: exercise.default_reps,
-        lang: 'en'
+        lang: langCode,
       }))
     } catch (error) {
       awaitingInferenceRef.current = false
       console.error('Frame send error:', error)
     }
-  }, [exercise.default_reps, exercise.name, exercise.primary_joints, exercise.target_rom_max, exercise.target_rom_min, sessionId])
+  }, [exercise.default_reps, exercise.name, exercise.primary_joints, exercise.target_rom_max, exercise.target_rom_min, sessionId, langCode])
 
   useEffect(() => {
     if (!cameraActive || !wsConnected) return

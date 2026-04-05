@@ -187,6 +187,8 @@ export default function Rehab() {
   // History
   const [history, setHistory] = useState<SessionRecord[]>(loadHistory)
   const [viewingSession, setViewingSession] = useState<SessionRecord | null>(null)
+  const autoAdvanceRef = useRef(false)
+  const autoAdvanceTimeoutRef = useRef<number | null>(null)
 
   // Timer effect during exercise
   useEffect(() => {
@@ -233,6 +235,7 @@ export default function Rehab() {
     setRepCount(0)
     setTimer(0)
     fatigueSamplesRef.current = []
+    autoAdvanceRef.current = false
 
     // Pick 4 random games
     const shuffled = [...ALL_GAMES].sort(() => 0.5 - Math.random())
@@ -253,9 +256,10 @@ export default function Rehab() {
     setTimer(0)
     setLiveData(null)
     fatigueSamplesRef.current = []
+    autoAdvanceRef.current = false
   }
 
-  const finishExercise = (skipped: boolean) => {
+  const finishExercise = useCallback((skipped: boolean) => {
     setSessionActive(false)
     setCurrentSessionId('')
     const ex = exercises[currentExIdx]
@@ -282,13 +286,39 @@ export default function Rehab() {
     setRepCount(0)
     setTimer(0)
     fatigueSamplesRef.current = []
+    autoAdvanceRef.current = false
 
     if (currentExIdx + 1 < exercises.length) {
       setCurrentExIdx(i => i + 1)
     } else {
       setPhase('cognitive')
     }
-  }
+  }, [currentExIdx, exercises, exerciseResults, repCount, timer])
+
+  useEffect(() => {
+    if (phase !== 'physical' || !sessionActive) {
+      autoAdvanceRef.current = false
+      if (autoAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(autoAdvanceTimeoutRef.current)
+        autoAdvanceTimeoutRef.current = null
+      }
+      return
+    }
+
+    const currentEx = exercises[currentExIdx]
+    if (!currentEx || autoAdvanceRef.current) return
+
+    if (repCount >= currentEx.default_reps && currentEx.default_reps > 0) {
+      autoAdvanceRef.current = true
+      autoAdvanceTimeoutRef.current = window.setTimeout(() => finishExercise(false), 0)
+    }
+    return () => {
+      if (autoAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(autoAdvanceTimeoutRef.current)
+        autoAdvanceTimeoutRef.current = null
+      }
+    }
+  }, [currentExIdx, exercises, finishExercise, phase, repCount, sessionActive])
 
   // ── Cognitive flow ─────────────────────────────────────────────────────
 

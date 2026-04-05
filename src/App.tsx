@@ -11,8 +11,10 @@ import PhysicalSession from './pages/PhysicalSession'
 import Cognitive from './pages/Cognitive'
 import Leaderboard from './pages/Leaderboard'
 import Profile from './pages/Profile'
+import EditProfile from './pages/EditProfile'
 import Chatbot from './pages/Chatbot'
 import { Loader2 } from 'lucide-react'
+import { useI18n } from './i18n'
 
 function ProtectedRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -23,6 +25,7 @@ function ProtectedRoute() {
 function AppLoader({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const setUser = useAuthStore((s) => s.setUser)
+  const { t } = useI18n()
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -43,7 +46,7 @@ function AppLoader({ children }: { children: React.ReactNode }) {
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent to-accent-dark flex items-center justify-center shadow-button animate-pulse">
           <Loader2 className="w-8 h-8 text-white animate-spin" />
         </div>
-        <p className="text-text-muted text-sm font-medium animate-pulse">Loading NeuroRehab...</p>
+        <p className="text-text-muted text-sm font-medium animate-pulse">{t('app.loading')}</p>
       </div>
     )
   }
@@ -69,6 +72,7 @@ export default function App() {
               <Route path="/chatbot" element={<Chatbot />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/edit" element={<EditProfile />} />
             </Route>
           </Route>
 

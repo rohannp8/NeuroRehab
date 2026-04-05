@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { BotMessageSquare, Send, User, Sparkles, Mic, WifiOff } from 'lucide-react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { useAuthStore } from '../store'
+import { useI18n, getLocale } from '../i18n'
 
 interface Message {
   id: string
@@ -35,10 +37,12 @@ interface SpeechRecognitionCtor {
 }
 
 export default function Chatbot() {
+  const user = useAuthStore((s) => s.user)
+  const { language, t } = useI18n()
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hello! I'm your NeuroAI Assistant. How can I help you with your rehabilitation journey today? Feel free to ask me general questions or doubts.",
+      text: t('chatbot.fallbackGeneric'),
       sender: 'bot',
       timestamp: new Date()
     }
@@ -57,6 +61,42 @@ export default function Chatbot() {
   const [isLoading, setIsLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
 
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+
+  const getExerciseHistory = () => {
+    try {
+      const raw = localStorage.getItem('neurorehab_sessions')
+      const parsed = raw ? JSON.parse(raw) : []
+      return Array.isArray(parsed) ? parsed.slice(0, 8) : []
+    } catch {
+      return []
+    }
+  }
+
+  const localFallback = (prompt: string) => {
+    const q = prompt.toLowerCase()
+    if (q.includes('parkinson')) {
+      return [
+        t('chatbot.fallbackTitle'),
+        t('chatbot.fallbackExercise1'),
+        t('chatbot.fallbackExercise2'),
+        t('chatbot.fallbackGeneric'),
+      ].join('\n')
+    }
+    if (q.includes('exercise') || q.includes('rep') || q.includes('rehab')) {
+      return [
+        t('chatbot.fallbackTitle'),
+        t('chatbot.fallbackExercise1'),
+        t('chatbot.fallbackExercise2'),
+      ].join('\n')
+    }
+    return [
+      t('chatbot.fallbackGeneric'),
+      t('chatbot.fallbackGeneral1'),
+      t('chatbot.fallbackGeneral2'),
+    ].join('\n')
+  }
+
   const toggleListen = () => {
     if (isListening) return;
     
@@ -73,7 +113,7 @@ export default function Chatbot() {
     const recognition = new SpeechRecognition()
     recognition.continuous = false
     recognition.interimResults = false
-    recognition.lang = 'en-US'
+    recognition.lang = language === 'hi' ? 'hi-IN' : language === 'mr' ? 'mr-IN' : 'en-US'
 
     recognition.onstart = () => {
       setIsListening(true)
@@ -117,13 +157,31 @@ export default function Chatbot() {
         content: m.text
       }))
 
-      const response = await fetch('http://localhost:8000/api/chat', {
+      const payload = {
+        messages: apiMessages,
+        user_id: user?.user_id,
+        lang_code: user?.language_code,
+        user_context: user
+          ? {
+              name: user.name,
+              condition_id: user.condition_id,
+              fitness_level: user.fitness_level,
+            }
+          : undefined,
+        exercise_history: getExerciseHistory(),
+      }
+
+      const response = await fetch(`${apiBaseUrl}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ messages: apiMessages })
+        body: JSON.stringify(payload)
       })
+
+      if (!response.ok) {
+        throw new Error(`Chat request failed with status ${response.status}`)
+      }
       
       const data = await response.json()
       
@@ -138,7 +196,7 @@ export default function Chatbot() {
       console.error("Chat error:", error)
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: "Sorry, I am having trouble connecting to the server.",
+        text: localFallback(input),
         sender: 'bot',
         timestamp: new Date()
       }
@@ -159,7 +217,7 @@ export default function Chatbot() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-text-primary">NeuroAI Assistant</h1>
-          <p className="text-sm text-text-muted">General guidance & support</p>
+          <p className="text-sm text-text-muted">{t('chatbot.subtitle')}</p>
         </div>
       </div>
 
@@ -168,8 +226,8 @@ export default function Chatbot() {
         <div className="flex items-center gap-3 p-4 rounded-xl bg-warn/10 border border-warn/30">
           <WifiOff className="w-5 h-5 text-warn flex-shrink-0" />
           <div>
-            <p className="text-sm font-bold text-warn-dark">You're currently offline</p>
-            <p className="text-xs text-warn-dark/80 mt-0.5">The AI Assistant requires an internet connection to respond. Please reconnect and try again.</p>
+            <p className="text-sm font-bold text-warn-dark">{t('chatbot.offlineTitle')}</p>
+            <p className="text-xs text-warn-dark/80 mt-0.5">{t('chatbot.offlineDesc')}</p>
           </div>
         </div>
       )}
@@ -208,7 +266,7 @@ export default function Chatbot() {
               }`}>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.text}</p>
                 <span className={`text-[10px] block mt-2 ${m.sender === 'user' ? 'text-accent-50/70 text-right' : 'text-text-muted'}`}>
-                  {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {m.timestamp.toLocaleTimeString(getLocale(language), { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             </div>
@@ -253,7 +311,7 @@ export default function Chatbot() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={isListening ? "Listening..." : isLoading ? "Bot is typing..." : "Ask me anything..."}
+              placeholder={isListening ? t('chatbot.placeholderListening') : isLoading ? t('chatbot.placeholderTyping') : t('chatbot.placeholderReady')}
               disabled={isLoading}
               className="flex-1 bg-card border border-border rounded-xl px-4 py-3 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors disabled:opacity-50"
             />

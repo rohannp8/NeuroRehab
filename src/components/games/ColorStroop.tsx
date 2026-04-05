@@ -22,6 +22,7 @@ export default function ColorStroop({ onComplete }: { onComplete: (score: number
   const [word, setWord] = useState(COLORS[0])
   const [color, setColor] = useState(COLORS[1])
   const [correctCount, setCorrectCount] = useState(0)
+  const [selectedColor, setSelectedColor] = useState<string | null>(null)
 
   const startRound = (currentRound: number, currentScore: number) => {
     if (currentRound > 5) {
@@ -45,12 +46,19 @@ export default function ColorStroop({ onComplete }: { onComplete: (score: number
   }
 
   const handleChoice = (chosenColorName: string) => {
+    if (selectedColor) return
+    setSelectedColor(chosenColorName)
+
     let newScore = correctCount
-    if (chosenColorName === color.name) {
+    const isCorrect = chosenColorName === color.name
+    if (isCorrect) {
       newScore += 1
     }
     setCorrectCount(newScore)
-    startRound(round + 1, newScore)
+    window.setTimeout(() => {
+      setSelectedColor(null)
+      startRound(round + 1, newScore)
+    }, 280)
   }
 
   if (round === 0) {
@@ -77,7 +85,16 @@ export default function ColorStroop({ onComplete }: { onComplete: (score: number
           <button 
             key={c.name}
             onClick={() => handleChoice(c.name)}
-            className="py-4 rounded-xl border border-border bg-card text-text-primary font-bold hover:bg-page transition-colors"
+            disabled={Boolean(selectedColor)}
+            className={`py-4 rounded-xl border-2 font-bold transition-colors ${
+              selectedColor === c.name
+                ? c.name === color.name
+                  ? 'bg-success/10 border-success text-success-dark'
+                  : 'bg-danger/10 border-danger text-danger-dark'
+                : selectedColor !== null && c.name === color.name
+                  ? 'bg-success/10 border-success text-success-dark'
+                  : 'bg-card border-border text-text-primary hover:bg-page'
+            }`}
           >
             {c.name}
           </button>

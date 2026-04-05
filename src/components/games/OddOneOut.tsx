@@ -22,6 +22,7 @@ export default function OddOneOut({ onComplete }: { onComplete: (score: number, 
   const [items, setItems] = useState<string[]>([])
   const [targetIdx, setTargetIdx] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
 
   const startRound = (currentRound: number, currentScore: number) => {
     if (currentRound > 5) {
@@ -45,12 +46,18 @@ export default function OddOneOut({ onComplete }: { onComplete: (score: number, 
   }
 
   const handleChoice = (idx: number) => {
+    if (selectedIdx !== null) return
+    setSelectedIdx(idx)
+
     let newScore = correctCount
     if (idx === targetIdx) {
       newScore += 1
     }
     setCorrectCount(newScore)
-    startRound(round + 1, newScore)
+    window.setTimeout(() => {
+      setSelectedIdx(null)
+      startRound(round + 1, newScore)
+    }, 280)
   }
 
   if (round === 0) {
@@ -71,7 +78,16 @@ export default function OddOneOut({ onComplete }: { onComplete: (score: number, 
           <button 
             key={i}
             onClick={() => handleChoice(i)}
-            className="text-4xl flex items-center justify-center bg-card border border-border rounded-xl hover:bg-page transition-colors"
+            disabled={selectedIdx !== null}
+            className={`text-4xl flex items-center justify-center rounded-xl transition-colors border-2 ${
+              selectedIdx === i
+                ? i === targetIdx
+                  ? 'bg-success/10 border-success'
+                  : 'bg-danger/10 border-danger'
+                : selectedIdx !== null && i === targetIdx
+                  ? 'bg-success/10 border-success'
+                  : 'bg-card border-border hover:bg-page'
+            }`}
           >
             {item}
           </button>

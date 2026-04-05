@@ -10,6 +10,11 @@ async def chat_with_bot(request: ChatRequest):
     messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
     
     # Get response from Groq
-    bot_response = generate_chat_response(messages)
+    bot_response = generate_chat_response(
+        messages,
+        exercise_history=request.exercise_history,
+        user_context=request.user_context,
+        lang_code=request.lang_code,
+    )
     
     return ChatResponse(response=bot_response)

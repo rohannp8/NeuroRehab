@@ -13,18 +13,33 @@ interface Props {
 function getAnimType(ex: Exercise): string {
   const n = ex.name.toLowerCase()
   const j = (ex.primary_joints[0] || '').toLowerCase()
+  if (n.includes('fist stretch') || n.includes('fit stretch') || n.includes('fist')) return 'fist'
+  if (n.includes('finger tapping')) return 'finger'
   if (n.includes('shoulder') || j === 'shoulder') return 'shoulder'
   if (n.includes('elbow') || j === 'elbow') return 'elbow'
   if (n.includes('knee') || j === 'knee') return 'knee'
   if (n.includes('hip') || j === 'hip') return 'hip'
   if (n.includes('wrist') || j === 'wrist') return 'wrist'
   if (n.includes('ankle') || j === 'ankle') return 'ankle'
+  if (n.includes('finger') || j === 'fingers') return 'finger'
   return 'generic'
 }
 
 // ─── Exercise steps ────────────────────────────────────────────────────────
 
 const STEPS: Record<string, { title: string; desc: string; tip: string }[]> = {
+  finger: [
+    { title: 'Start Position', desc: 'Hold your hand up at chest level with fingers relaxed and open.', tip: '💡 Keep the motion small and controlled' },
+    { title: 'Move In', desc: 'Slowly bend your index finger toward your thumb.', tip: '💡 Focus on the index finger only' },
+    { title: 'Tap', desc: 'Touch your index finger to your thumb, then pause briefly.', tip: '💡 Make a clean, gentle tap' },
+    { title: 'Release', desc: 'Open the hand back to the starting position.', tip: '💡 Fully relax the fingers before the next rep' },
+  ],
+  fist: [
+    { title: 'Start Position', desc: 'Hold your hand up at chest level with fingers fully open.', tip: '💡 Keep the wrist neutral' },
+    { title: 'Close Fist', desc: 'Curl all fingers inward to form a fist.', tip: '💡 Close slowly and evenly' },
+    { title: 'Squeeze', desc: 'Hold the fist for a moment with gentle effort.', tip: '💡 Avoid gripping too hard' },
+    { title: 'Release', desc: 'Open your hand fully again.', tip: '💡 Spread the fingers wide before repeating' },
+  ],
   shoulder: [
     { title: 'Start Position', desc: 'Stand tall, feet shoulder-width apart, arm resting at your side.', tip: '💡 Relax your neck and shoulders' },
     { title: 'Initiate Lift', desc: 'Slowly raise your arm straight forward with elbow fully extended.', tip: '💡 Breathe out as you lift' },
