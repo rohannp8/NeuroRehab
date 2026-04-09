@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '../store'
 import { mockROMData, mockNotifications, mockExercises } from '../mockData'
 import MetricCard from '../components/MetricCard'
@@ -13,14 +14,138 @@ import {
 } from 'lucide-react'
 import { getLocale, useI18n } from '../i18n'
 
+const SESSION_STORAGE_KEY = 'neurorehab_sessions'
+
+interface SessionHistoryItem {
+  id?: string
+  date?: string
+  physicalScore?: number
+  cognitiveScore?: number
+  overallScore?: number
+}
+
+interface ActivityPoint {
+  date: string
+  physical: number
+  cognitive: number
+  overall: number
+  timestamp: number
+}
+
+function parseSessionDate(rawDate?: string): Date | null {
+  if (!rawDate) return null
+
+  const direct = new Date(rawDate)
+  if (!Number.isNaN(direct.getTime())) return direct
+
+  const match = rawDate.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/)
+  if (!match) return null
+
+  const [, day, mon, year] = match
+  const rebuilt = new Date(`${day} ${mon} ${year}`)
+  return Number.isNaN(rebuilt.getTime()) ? null : rebuilt
+}
+
+function buildFallbackChartData(): ActivityPoint[] {
+  return mockROMData.map((item, idx) => ({
+    date: item.date,
+    physical: item.shoulder,
+    cognitive: item.knee,
+    overall: item.elbow,
+    timestamp: idx,
+  }))
+}
+
+function loadLiveChartData(rangeDays: number, locale: string): ActivityPoint[] {
+  const raw = localStorage.getItem(SESSION_STORAGE_KEY)
+  if (!raw) return buildFallbackChartData()
+
+  let parsed: SessionHistoryItem[] = []
+  try {
+    const data = JSON.parse(raw)
+    if (Array.isArray(data)) parsed = data
+  } catch {
+    return buildFallbackChartData()
+  }
+
+  const now = Date.now()
+  const rangeMs = rangeDays * 24 * 60 * 60 * 1000
+  const daily = new Map<string, { dateObj: Date; physicalSum: number; cognitiveSum: number; overallSum: number; count: number }>()
+
+  parsed.forEach((session) => {
+    if (
+      typeof session.physicalScore !== 'number'
+      || typeof session.cognitiveScore !== 'number'
+      || typeof session.overallScore !== 'number'
+    ) {
+      return
+    }
+
+    const parsedDate = parseSessionDate(session.date)
+    if (!parsedDate) return
+
+    if (now - parsedDate.getTime() > rangeMs) return
+
+    const dayKey = parsedDate.toISOString().slice(0, 10)
+    const existing = daily.get(dayKey)
+
+    if (existing) {
+      existing.physicalSum += session.physicalScore
+      existing.cognitiveSum += session.cognitiveScore
+      existing.overallSum += session.overallScore
+      existing.count += 1
+    } else {
+      daily.set(dayKey, {
+        dateObj: parsedDate,
+        physicalSum: session.physicalScore,
+        cognitiveSum: session.cognitiveScore,
+        overallSum: session.overallScore,
+        count: 1,
+      })
+    }
+  })
+
+  const points = Array.from(daily.values())
+    .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
+    .map((entry) => ({
+      date: entry.dateObj.toLocaleDateString(locale, { month: 'short', day: '2-digit' }),
+      physical: Math.round(entry.physicalSum / entry.count),
+      cognitive: Math.round(entry.cognitiveSum / entry.count),
+      overall: Math.round(entry.overallSum / entry.count),
+      timestamp: entry.dateObj.getTime(),
+    }))
+
+  return points.length > 0 ? points : buildFallbackChartData()
+}
+
 export default function Dashboard() {
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
   const { language, t } = useI18n()
+  const [rangeDays, setRangeDays] = useState<7 | 30>(7)
+  const [chartData, setChartData] = useState<ActivityPoint[]>([])
+
+  const locale = useMemo(() => getLocale(language), [language])
+
+  useEffect(() => {
+    const refresh = () => setChartData(loadLiveChartData(rangeDays, locale))
+
+    refresh()
+    const intervalId = window.setInterval(refresh, 2000)
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === SESSION_STORAGE_KEY) refresh()
+    }
+
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [rangeDays, locale])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? t('dashboard.greetingMorning') : hour < 17 ? t('dashboard.greetingAfternoon') : t('dashboard.greetingEvening')
-  const dateStr = new Date().toLocaleDateString(getLocale(language), {
+  const dateStr = new Date().toLocaleDateString(locale, {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
@@ -82,16 +207,20 @@ export default function Dashboard() {
       <motion.div variants={item} className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="section-title">{t('dashboard.activityGrowth')}</h3>
-          <select className="input-field w-auto py-1.5 px-3 text-sm">
-            <option>{t('dashboard.last7')}</option>
-            <option>{t('dashboard.last30')}</option>
+          <select
+            value={rangeDays}
+            onChange={(e) => setRangeDays(Number(e.target.value) === 30 ? 30 : 7)}
+            className="input-field w-auto py-1.5 px-3 text-sm"
+          >
+            <option value={7}>{t('dashboard.last7')}</option>
+            <option value={30}>{t('dashboard.last30')}</option>
           </select>
         </div>
         <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={mockROMData}>
+          <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E8ECF1" />
             <XAxis dataKey="date" stroke="#8C92A4" fontSize={12} />
-            <YAxis stroke="#8C92A4" fontSize={12} />
+            <YAxis domain={[0, 100]} stroke="#8C92A4" fontSize={12} />
             <Tooltip
               contentStyle={{
                 backgroundColor: '#FFFFFF',
@@ -101,9 +230,9 @@ export default function Dashboard() {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
               }}
             />
-            <Line type="monotone" dataKey="shoulder" stroke="#D4956B" strokeWidth={2.5} dot={{ fill: '#D4956B', r: 4, strokeWidth: 2, stroke: '#fff' }} name="Shoulder" />
-            <Line type="monotone" dataKey="elbow" stroke="#5B8DEF" strokeWidth={2.5} dot={{ fill: '#5B8DEF', r: 4, strokeWidth: 2, stroke: '#fff' }} name="Elbow" />
-            <Line type="monotone" dataKey="knee" stroke="#34C759" strokeWidth={2.5} dot={{ fill: '#34C759', r: 4, strokeWidth: 2, stroke: '#fff' }} name="Knee" />
+            <Line type="monotone" dataKey="physical" stroke="#D4956B" strokeWidth={2.5} dot={{ fill: '#D4956B', r: 4, strokeWidth: 2, stroke: '#fff' }} name={t('dashboard.linePhysical')} />
+            <Line type="monotone" dataKey="overall" stroke="#5B8DEF" strokeWidth={2.5} dot={{ fill: '#5B8DEF', r: 4, strokeWidth: 2, stroke: '#fff' }} name={t('dashboard.lineOverall')} />
+            <Line type="monotone" dataKey="cognitive" stroke="#34C759" strokeWidth={2.5} dot={{ fill: '#34C759', r: 4, strokeWidth: 2, stroke: '#fff' }} name={t('dashboard.lineCognitive')} />
           </LineChart>
         </ResponsiveContainer>
       </motion.div>
@@ -230,7 +359,7 @@ export default function Dashboard() {
               <div className="w-2 h-2 rounded-full bg-accent mt-2 flex-shrink-0" />
               <div>
                 <p className="text-sm text-text-primary">{n.message}</p>
-                <p className="text-xs text-text-light mt-1">{new Date(n.created_at).toLocaleString(getLocale(language))}</p>
+                <p className="text-xs text-text-light mt-1">{new Date(n.created_at).toLocaleString(locale)}</p>
               </div>
             </div>
           ))}
